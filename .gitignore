@@ -1,10 +1,10 @@
 # History files
 .Rhistory
 .Rapp.history
-
+COVIDScenarioPipeline/
 # Session Data files
 .RData
-
+.DS_Store
 # User-specific files
 .Ruserdata
 
