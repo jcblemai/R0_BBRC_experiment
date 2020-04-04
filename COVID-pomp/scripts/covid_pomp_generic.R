@@ -468,7 +468,7 @@ covid <- pomp(
   globals = str_c(dskellam.C, rskellam.C, sep = "\n")
 )
 
-save(covid, file = "COVID-pomp/interm/pomp_object_{canton}.rda")
+save(covid, file = glue("COVID-pomp/interm/pomp_object_{canton}.rda"))
 
 # Setup MIF parameters -----------------------------------------------------
 
