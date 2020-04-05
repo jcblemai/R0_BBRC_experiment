@@ -44,14 +44,14 @@ filter_filename <- glue("COVID-pomp/results/filtered_{suffix}.rds")
 ncpus <- 8
 
 # Level of detail on which to run the computations
-run_level <- 1
-sir_Np <- c(1e3, 3e3, 3e3)
-sir_Nmif <- c(2, 20, 100)
+run_level <- 3
+sir_Np <- c(1e3, 3e3, 4e3)
+sir_Nmif <- c(2, 20, 200)
 sir_Ninit_param <- c(ncpus, 8, ncpus)
 sir_NpLL <- c(1e3, 1e4, 1e4)
 sir_Nreps_global <- c(2, 5, 10)
 
-n_filter <- 1e1
+n_filter <- 1e3
 
 # parallel computations
 cl <- makeCluster(ncpus)
@@ -365,7 +365,7 @@ proc.Csnippet <- Csnippet("
                           a_DU += dN[20];
                           a_D  = a_DH + a_DI + a_DU;
                           a_O  += dN[12] + dN[18]; // discharged from hospital
-                          a_deltaH = a_H - a_DH - a_DU - a_0;
+                          a_deltaH = a_H - a_DH - a_DU;
                           // Current
                           U_curr = U_s1 + U_s2 + U_d1 + U_d2;
                           H_curr = H_s1 + H_s2 + H + H_d1 + H_d2 + U_s1 + U_s2 + U_d1 + U_d2;

@@ -1,0 +1,173 @@
+---
+title: "COVID CH"
+css: "../../notebooks/report.css"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+options(scipen=999)
+knitr::opts_chunk$set(echo = F, message=F, warning = F)
+
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(gridExtra)
+```
+
+This report presents results on the estimation of changes of the *basic reproduction number* ($R_0$) in time in Switzerland.
+
+## Main results {.tabset}
+### Main
+asdsafs
+
+### Additional results
+adasdsa
+
+### Methods
+
+#### Model diagram
+We implement a stochastic dynamical model of the epidemic and hospitalization processes based on the SEIR template. The model assumes that infected people have a certain probability of developing severe symptoms, which then either are hospitalized or not. Infected can dye either outside of the hospital system or within it, either in an ICU or not.
+
+The number of compartments in each stage of the disease is determined by fitting an Erlang distribution to the observed times of each transition between classes. Hospital data from VD where used in this analysis.
+```{r diag, echo=FALSE, engine='tikz',fig.ext='svg',fig.width=11}
+\usetikzlibrary{positioning}
+\usetikzlibrary{calc}
+
+\begin{tikzpicture}
+\node[rectangle, draw=black] (s) {\footnotesize S};
+\node[circle, draw=black, above of=s, xshift = .5cm, inner sep=.1em] (beta) {\footnotesize $\beta(t)$};
+\node[rectangle, draw=black, right of=s] (e) {\footnotesize E};
+\node[rectangle, draw=black, right of=e] (i1) {\footnotesize I$_1$};
+\node[rectangle, draw=black, right of=i1, xshift = -.25cm] (i2) {\footnotesize I$_2$};
+\node[rectangle, draw=black, right of=i2, xshift = -.25cm] (i3) {\footnotesize I$_3$};
+
+\node[rectangle, draw=black, anchor = west, below right of=i3, xshift = .5cm] (hs1) {\footnotesize H$_{\text{s}_1}$};
+\node[rectangle, draw=black, anchor = west, right of=hs1] (hs2) {\footnotesize H$_{\text{s}_2}$};
+\node[rectangle, draw=black, anchor = west, below of=hs1] (h) {\footnotesize H};
+\node[rectangle, draw=black, anchor = west, right of=h] (us1) {\footnotesize U$_{\text{s}_1}$};
+\node[rectangle, draw=black, anchor = west, right of=us1] (us2) {\footnotesize U$_{\text{s}_2}$};
+\node[rectangle, draw=black, anchor = west, below of=us1] (ud1) {\footnotesize U$_{\text{d}_1}$};
+\node[rectangle, draw=black, anchor = west, right of=ud1] (ud2) {\footnotesize U$_{\text{d}_2}$};
+\node[rectangle, draw=black, anchor = west, below left of=ud1] (hd1) {\footnotesize H$_{\text{d}_1}$};
+\node[rectangle, draw=black, anchor = west, right of=hd1] (hd2) {\footnotesize H$_{\text{d}_2}$};
+
+\node[rectangle, draw=black, right of=i3, xshift = 1.2cm, yshift =.5cm] (id) {\footnotesize I$_\text{d}$};
+\node[rectangle, draw=black, right of=ud2, xshift = 1cm] (d) {\footnotesize D};
+\node[rectangle, draw=black, right of=hs2, xshift = 1.5cm] (r) {\footnotesize R};
+
+\draw[->, to path={-- (\tikztotarget)}] (s) edge (e) (e) edge (i1) (i1) edge (i2) (i2) edge (i3);
+\draw[->, to path={|- (\tikztotarget)}] (i3) edge (hs1) (i3) edge (hd1) (i3) edge (h) (h) edge (ud1) (i1) edge (beta) (i2) edge (beta) (i3) edge (beta) (beta) edge (e);
+\draw[->, to path={-- (\tikztotarget)}] (h) edge (us1) (us1) edge (us2) (ud1) edge (ud2) (hs1) edge (hs2) (hd1) edge (hd2) (i3) edge (id);
+
+
+\draw[->] (hd2.east) -- (d.west);
+\draw[->] (ud2.east) -- (d.west);
+
+\draw[->] (hs2.east) -- (r.west);
+\draw[->] (us2.east) -- (r.west);
+
+\draw[->, to path={-| (\tikztotarget)}] (id) edge (d) (id) edge (r) (i3) edge (r);
+
+\node[right of=r, xshift=1cm, text width=9cm,align=left, anchor =west] (ts) {\footnotesize S: Susceptible \\
+  E: Exposed \\
+  I$_{1,2,3}$: Infected symptomatic \\
+  I$_d$: Infected severly symptomatic that will die \\
+  H$_{s1,2}$: Hospitalized that will survive without ICU \\
+  H$_{d1,2}$: Hospitalized that will die without ICU \\
+  H: Hospitalized that will go into ICU \\
+  U$_{s1,2}$: ICU that will survive\\
+  U$_{d1,2}$: ICU that will die\\
+  R: Recovered \\
+  D: Dead \\
+  };
+
+\end{tikzpicture}
+```
+
+#### Parameters
+We estimate four paramaters to available cantonal level data (Table 1). The main parameter of interest is the basic reproduction number $R_0$. We here allow the value of the paramter to change in time to capture behavioral changes following the successive application of non-pharmasutical interventions (NPIs) by the cantonal and federal governments between March 1st and March 20th. The duration in the infectious state was derived from an assumed generation time of 5.2 days (Ghani et al. 2020), and a latent duration of 4.2 days (i.e. 1 day of infectious but non-symptomatique interval), thus yielding $1/\gamma = 2(5.2 - 4.2) = 2days$.
+
+```{r params, echo=FALSE, message=FALSE, warning=FALSE}
+library(yaml)
+params <- as.data.frame(yaml::read_yaml("../data/parameters.yaml"))
+ncomps <- tribble(
+  ~parameter, ~ncomp,
+  "e2i", 1,
+  "i2o", 1,
+  "i2h", 1,
+  "id2o", 1,
+  "hd2d", 2,
+  "h2u", 1,
+  "hs2r", 2,
+  "ud2d", 2,
+  "us2r", 2
+)
+
+comp_names <- c("i" =  "Infected",
+                "id" = "Infected dying outside of hospital",
+                "e" = "Exposed",
+                "o" = "other", 
+                "h" = "Hospitalized",
+                "hs" = "Hospitalized surviving with no ICU",
+                "hd" = "Hospitalized dying with no ICU",
+                "u" = "ICU",
+                "d" = "Death",
+                "us" = "ICU surviving",
+                "ud" = "ICU dying",
+                "r" = "Recovered")
+
+formatParams <- function(vec) {
+  if (!str_detect(vec["parameter"], "^p")) {
+    pstr <- comp_names[str_split(vec["parameter"], "2")[[1]]] %>% 
+      str_c(collapse = " -> ")
+    ptype <- "rate"
+    pval <- format(as.numeric(vec["value"]), digits = 2)
+    punits <- "/day"
+    comment <-   str_c("duration of ", format(as.numeric(vec["ncomp"])/as.numeric(vec["value"]), digits = 2), " days")
+  } else {
+    pstr <- comp_names[str_replace(str_split(vec["parameter"], "2")[[1]], "p", "")] %>% 
+      str_c(collapse = " -> ")
+    if (vec["parameter"] == "psevere") pstr <- "Severe infection"
+    pval <- format(as.numeric(vec["value"]), digits = 2)
+    ptype <- "Probability"
+    punits <- ""
+    comment <- ""
+  }
+  data.frame(type = ptype, parameter = pstr, value = pval, comment = comment)
+}
+
+gather(params, parameter, value) %>% 
+  left_join(ncomps) %>% 
+  apply(1, formatParams) %>%
+  bind_rows() %>% 
+  kable(booktabs = T,
+        digits = 2,
+        caption = "Table. Model parameters"#,
+        # col.names = c("", "mean (logscale)", "sd (logscale)")
+  ) %>% 
+  kable_styling(latex_options = c("striped", "hold_position"),
+                full_width = F)
+```
+
+#### Model fitting
+We fit the model to cantonal-level data available from [OpenZH](https://github.com/openZH/covid_19). These include the current number of hospitalized COVID patients, and the cumulative numbers of deaths, cases and hospital discharges. The latter was not available in all cantons. A summary of the data is presented in Table 2. Time-varying transmission $\beta(t) = R_0/\gamma$ was estimated following a similar approach than that in [Cazelles et al. (2018)](https://doi.org/10.1371/journal.pcbi.1006211).
+
+```{r data}
+
+```
+
+The observation model is formulated as follows:
+
+$$
+\begin{aligned}
+cases(t) &\sim NegBinom(\epsilon \Delta I(t), k)\\
+deaths(t) &\sim Poisson(\Delta D(t)) \\
+\Delta hosp(t) &\sim Skellam(\Delta H(t), \Delta D(t) + \Delta R_H(t)) \\
+\end{aligned}
+$$
+where, $\Delta I(t)$, $\Delta D(t)$, $\Delta H(t)$, $\Delta R_H(t)$ are respectively the number of new infected, deaths, hospitalized and discharged from hospitals at time $t$,
+$\epsilon$ is the reporting rate (between 0 and 1), $k$ is the over-dispersion parameter of the negative binomial distribution, and $\Delta hosp(t)$ is the difference between the number of current hospitalizations at times $t$ and $t-1$, for which we choose a [Skellam distribution](https://en.wikipedia.org/wiki/Skellam_distribution). The full log-likelihood of the observation model was taken as the sum of the individual log-likelihoods of the three data types. 
+
+The model was fit using multiple-iterated filtering as implemented by [Ionides et al. (2015)]( https://doi.org/10.1073/pnas.1410597112) in the [POMP](https://kingaa.github.io/pomp/) R package.
+
+
