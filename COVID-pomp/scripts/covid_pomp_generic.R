@@ -29,6 +29,11 @@ lik_components <- str_split(args[2], "-")[[1]]#c("deltah", "c", "d")
 lik_log <- str_c(str_c("ll_", lik_components), collapse = "+")
 lik <- str_c(str_c("ll_", lik_components), collapse = "*")
 
+# Test for cases in the likelihood
+ll_cases <- "c" %in% lik_components
+
+cat("************ \nFITITNG:", canton, "with likelihood:", args[2], "\n************")
+
 suffix <- glue("covid_{canton}_{str_c(lik_components, collapse = '-')}")
 
 # files for results
@@ -71,8 +76,8 @@ yearsToDateTime <- function(year_frac, origin = as.Date("2020-01-01"), yr_offset
 
 
 # Data ---------------------------------------------------------------
-start_date <- as.Date("2020-02-20")
-end_date <- as.Date("2020-05-31")
+#start_date <- as.Date("2020-02-20")
+#end_date <- as.Date("2020-05-31")
 
 data_file <- glue("data/ch/cases/COVID19_Fallzahlen_Kanton_{canton}_total.csv")
 
@@ -85,8 +90,16 @@ cases_data <- read_csv(data_file) %>%
          delta_hosp = c(hosp_curr[1], diff(hosp_curr)),
          delta_ID = delta_hosp + discharged)
 
-data <- select(cases_data, date, cases, deaths, cum_deaths, hosp_curr, discharged, delta_hosp, delta_ID) %>% 
+data <- select(cases_data, 
+              date, cases, deaths, cum_deaths, hosp_curr, discharged, delta_hosp, delta_ID) %>% 
   mutate(hosp_incid = NA)
+
+# Set start date 
+start_date <- with(data, 
+                   min(c(date[which(!is.na(cases))[1]] - 5, 
+                         date[which(!is.na(hosp_curr))[1]] - 8)))#as.Date("2020-02-20")
+
+end_date <- as.Date("2020-05-31")
 
 # Add rows
 data <- rbind(tibble(date = seq.Date(start_date, min(data$date), by = "1 days")) %>% 
@@ -152,7 +165,7 @@ state_names <- mapply(
 
 # define parameter names for pomp
 ## process model parameters names to estimate
-param_proc_est_names <- c("std_X", "k", "epsilon")
+#param_proc_est_names <- c("std_X", "k", "epsilon")
 
 ## initial value parameters to estimate
 param_iv_est_names <- c("I_0", "R0_0")
@@ -160,7 +173,16 @@ param_iv_est_names <- c("I_0", "R0_0")
 ## fixed process model parameters 
 rate_names <- c("e2i", "l2i", "id2o", "i2h", "i2o", "hs2r", "hd2d", "h2u", "us2r", "ud2d")
 prob_names <- c("psevere", "pi2d", "pi2h", "pi2hs", "ph2u", "pu2d")
-param_proc_fixed_names <- c("pop", rate_names, prob_names,  "alpha", "std_W")
+#param_proc_fixed_names <- c("pop", rate_names, prob_names,  "alpha", "std_W")
+# define parameter names for pomp
+## process model parameters names to estimate
+if (ll_cases) {
+  param_proc_est_names <- c("std_X", "k", "epsilon")
+  param_proc_fixed_names <- c("pop", rate_names, prob_names, "std_W")
+} else {
+  param_proc_est_names <- c("std_X")
+  param_proc_fixed_names <- c("pop", rate_names, prob_names, "std_W", "k", "epsilon")
+}
 
 # all parameter names to estimate
 param_est_names <- c(param_proc_est_names, param_iv_est_names)
@@ -345,7 +367,7 @@ proc.Csnippet <- Csnippet("
                           a_DU += dN[20];
                           a_D  = a_DH + a_DI + a_DU;
                           a_O  += dN[12] + dN[18]; // discharged from hospital
-                          a_deltaH = a_H - a_DH - a_DU;
+                          a_deltaH = a_H - a_DH - a_DU - a_0;
                           // Current
                           U_curr = U_s1 + U_s2 + U_d1 + U_d2;
                           H_curr = H_s1 + H_s2 + H + H_d1 + H_d2 + U_s1 + U_s2 + U_d1 + U_d2;
@@ -356,15 +378,10 @@ proc.Csnippet <- Csnippet("
                           dWX = rnorm(0, sqrt(dt));
                           X  +=  std_X * dWX;  // 
                           
-                         // if (t >= tlockdown & lockflag == 0) {
-                         //  X  +=  log(alpha);  // 
-                         //   lockflag = 1;
-                         // }
                           
                           
                           // susceptibles so as to match total population
                           N = pop - D - H_curr - U_curr;
-                          //Rt = (t<tlockdown) ? exp(X) / (i2r) :  alpha * exp(X) / (i2r); 
                           Rt = exp(X) / (i2o); 
                           ")
 
@@ -400,8 +417,7 @@ init.Csnippet <- Csnippet("X = log(R0_0 * i2o);
                           R   = 0;
                           S   = nearbyint(pop - I1);
                           N   = pop;
-                          tot_I = 0;
-                          //lockflag = 0;")
+                          tot_I = 0;")
 
 # Build pomp object -------------------------------------------------------
 
@@ -420,7 +436,7 @@ params["pop"] <- geodata$pop2018[geodata$ShortName == canton]
 # Initialize the parameters to estimate (just initial guesses)
 params["std_W"] <- 0#1e-4
 params["std_X"] <- 0#1e-4
-params["epsilon"] <- .3
+params["epsilon"] <- 1
 params["k"] <- 5
 params["I_0"] <- 10/params["pop"]
 params["alpha"] <- 1
@@ -461,8 +477,8 @@ covid <- pomp(
   # initializer
   rinit = init.Csnippet,
   partrans = parameter_trans(
-    log = c("std_W", "std_X", "R0_0", "k"),
-    logit = c("I_0", "epsilon", "alpha")
+    log = c("std_X", "R0_0", ifelse(ll_cases, "k", NA)) %>% .[!is.na(.)],
+    logit = c("I_0", ifelse(ll_cases, "epsilon", NA)) %>% .[!is.na(.)]
   ),
   # Add density and generation fuctions for Skellam dist
   globals = str_c(dskellam.C, rskellam.C, sep = "\n")
@@ -486,14 +502,17 @@ parameter_bounds <- tribble(
   ~param, ~lower, ~upper,
   # Process noise
   "std_X", -2, 2, #in log-scale
-  # "std_W",  -6, -3,  # in log-scale
   # Measurement model
-  "k", .1, 1,
+  "k", .1, 10,
   "epsilon", 0.2, 0.5,
   # Initial conditions
   "I_0", 10/params["pop"], 100/params["pop"],
   "R0_0", 1.5, 3
 )
+
+if (!ll_cases) {
+  parameter_bounds <- parameter_bounds %>% filter(!(param %in% c("k", "epsilon")))
+}
 
 # convert to matrix for ease
 parameter_bounds <- set_rownames(as.matrix(parameter_bounds[, -1]), parameter_bounds[["param"]])
@@ -518,8 +537,8 @@ job_rw.sd <- eval(
   parse(
     text = str_c("rw.sd(",
                  " std_X  = ", rw.sd_param["regular"],
-                 ", k  = ", rw.sd_param["regular"],
-                 ", epsilon  = ", rw.sd_param["regular"],
+                 ", k  = ", ifelse(ll_cases, rw.sd_param["regular"], 0),
+                 ", epsilon  = ", ifelse(ll_cases, rw.sd_param["regular"], 0),
                  ", I_0  = ivp(",  rw.sd_param["ivp"], ")",
                  ", R0_0  = ivp(",  rw.sd_param["ivp"], ")",
                  ")")
@@ -546,7 +565,7 @@ t1 <- system.time({
                 }})
 
 save(t1, mf, file = mif_filename)
-
+cat("----- Done MIF, took", round(t1["elapsed"]/60), "mins \n")
 # Log-lik ------------------------------------------------------------------
 
 t2 <- system.time({
@@ -571,7 +590,7 @@ t2 <- system.time({
 })
 
 write_csv(liks, path = ll_filename, append = file.exists(ll_filename))
-
+cat("----- Done LL, took", round(t2["elapsed"]/60), "mins \n")
 
 # Filter --------------------------------------------------------------------
 
@@ -580,6 +599,7 @@ best_params <- liks %>%
   select(-contains("log")) %>% 
   slice(1:3)
 
+t3 <- system.time({
 filter_dists <- foreach(pari = iter(best_params, "row"),
                         pit = icount(nrow(best_params)),
                         .packages = c("pomp", "tidyverse", "foreach", "magrittr"),
@@ -602,12 +622,13 @@ filter_dists <- foreach(pari = iter(best_params, "row"),
                                      parset = pit)
                           }
                         }
+})
 
 saveRDS(filter_dists %>% mutate(ShortName = canton), file = filter_filename)
 
 stopCluster(cl)
 closeAllConnections()
-
+cat("----- Done filtering, took", round(t3["elapsed"]/60), "mins \n")
 
 filter_stats <- filter_dists %>% 
   group_by(time, parset, var) %>% 
