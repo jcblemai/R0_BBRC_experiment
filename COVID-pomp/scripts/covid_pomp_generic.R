@@ -44,14 +44,14 @@ filter_filename <- glue("COVID-pomp/results/filtered_{suffix}.rds")
 ncpus <- 8
 
 # Level of detail on which to run the computations
-run_level <- 3
+run_level <- 1
 sir_Np <- c(1e3, 3e3, 3e3)
 sir_Nmif <- c(2, 20, 100)
 sir_Ninit_param <- c(ncpus, 8, ncpus)
 sir_NpLL <- c(1e3, 1e4, 1e4)
 sir_Nreps_global <- c(2, 5, 10)
 
-n_filter <- 1e3
+n_filter <- 1e1
 
 # parallel computations
 cl <- makeCluster(ncpus)
@@ -76,8 +76,6 @@ yearsToDateTime <- function(year_frac, origin = as.Date("2020-01-01"), yr_offset
 
 
 # Data ---------------------------------------------------------------
-#start_date <- as.Date("2020-02-20")
-#end_date <- as.Date("2020-05-31")
 
 data_file <- glue("data/ch/cases/COVID19_Fallzahlen_Kanton_{canton}_total.csv")
 
@@ -104,6 +102,7 @@ end_date <- as.Date("2020-05-31")
 # Add rows
 data <- rbind(tibble(date = seq.Date(start_date, min(data$date), by = "1 days")) %>% 
                 cbind(data[1, -1] %>% mutate_all(function(x) x <- NA)) , data)
+
 
 # Model specification -----------------------------------------------------
 
@@ -239,7 +238,6 @@ dmeasure.Csnippet <- Csnippet(glue("
     lik =  {{lik}};
   }
                               ", .open = "{{", .close = "}}"))
-
 
 ## NegBinomial simulator
 rmeasure.Csnippet <- Csnippet("
@@ -439,7 +437,6 @@ params["std_X"] <- 0#1e-4
 params["epsilon"] <- 1
 params["k"] <- 5
 params["I_0"] <- 10/params["pop"]
-params["alpha"] <- 1
 
 # adjust the rate parameters depending on the integration delta time in years (some parameter inputs given in days)
 params[param_rates_in_days_names] <- params[param_rates_in_days_names] * 365.25
@@ -548,7 +545,6 @@ job_rw.sd <- eval(
 # MIF --------------------------------------------------------------------------
 
 # MIF it! 
-
 t1 <- system.time({
   mf <- foreach(parstart = iter(init_params, by = "row"),
                 .inorder = F, 
@@ -565,6 +561,7 @@ t1 <- system.time({
                 }})
 
 save(t1, mf, file = mif_filename)
+
 cat("----- Done MIF, took", round(t1["elapsed"]/60), "mins \n")
 # Log-lik ------------------------------------------------------------------
 
@@ -590,7 +587,9 @@ t2 <- system.time({
 })
 
 write_csv(liks, path = ll_filename, append = file.exists(ll_filename))
+
 cat("----- Done LL, took", round(t2["elapsed"]/60), "mins \n")
+
 
 # Filter --------------------------------------------------------------------
 
@@ -624,11 +623,14 @@ filter_dists <- foreach(pari = iter(best_params, "row"),
                         }
 })
 
+
 saveRDS(filter_dists %>% mutate(ShortName = canton), file = filter_filename)
 
 stopCluster(cl)
 closeAllConnections()
+
 cat("----- Done filtering, took", round(t3["elapsed"]/60), "mins \n")
+
 
 filter_stats <- filter_dists %>% 
   group_by(time, parset, var) %>% 

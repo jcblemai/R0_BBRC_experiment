@@ -4,6 +4,7 @@ erlangLL <- function(lambda, x, k) {
 
 fitErland <- function(x, ks = 1:10, zero_replace = .5) {
   x[x == 0] <- zero_replace
+  x <- x[x>0]
   bind_rows(
     lapply(ks, 
            function(k) 
@@ -15,7 +16,7 @@ fitErland <- function(x, ks = 1:10, zero_replace = .5) {
                     mean = k/lambda,
                     variance = k/(lambda^2)) %>%
              select(k, ll, lambda, mean, variance)
-             
+           
     )
   ) %>% 
     arrange(desc(ll)) %>% 
