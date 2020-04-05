@@ -16,11 +16,11 @@ hd2d: 0.375
 # rate hospitalization to ICU: fitted to VD data (k=1)
 h2u: 0.496
 # rate hospitalization to recovery: fitted to VD data (k=2)
-hs2r: 0.25
+hs2r: 0.3
 # rate ICU to death: fitted to VD data (k=2)
-ud2d: 0.286
-# rate ICU to recovery: fitted to VD data (k=1)
-us2r: 0.2
+ud2d: 0.135
+# rate ICU to recovery: fitted to VD data (k=2)
+us2r: 0.266
 # probability of severe symptoms (VD data)
 psevere: 0.20
 # probability of death|!hospitalization
@@ -28,8 +28,8 @@ pi2d: 0.10
 # probability of hospitalization (VD data)
 pi2h: 0.55
 # probability of discharge,!ICU|hospitalization
-pi2hs: 0.77
+pi2hs: 0.80
 # probability of ICU|hospitalization, (!discharged & !ICU) (VD data)
-ph2u: 0.60
+ph2u: 0.85
 # probability of death|hospitalization, !ICU (VD data)
-pu2d: 0.36 
+pu2d: 0.45
