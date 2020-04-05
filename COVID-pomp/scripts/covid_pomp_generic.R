@@ -34,9 +34,9 @@ suffix <- glue("covid_{canton}_{str_c(lik_components, collapse = '-')}")
 # files for results
 ll_filename <- glue("COVID-pomp/results/loglik_exploration_{suffix}.csv")
 mif_filename <- glue("COVID-pomp/results/mif_sir_sde_{suffix}.rda")
-filter_filename <- glue("COVID-pomp/results/filtered_{suffix}.rda")
+filter_filename <- glue("COVID-pomp/results/filtered_{suffix}.rds")
 
-ncpus <- 3
+ncpus <- 8
 
 # Level of detail on which to run the computations
 run_level <- 3
@@ -107,7 +107,7 @@ data <- rbind(tibble(date = seq.Date(start_date, min(data$date), by = "1 days"))
 ## parameter names:
 ### Pop dynamics
 # N: total population
-### Infection dynamics (suffix _s|d indicate survival/death ouctome)
+### Infection dynamics (suffix _s|d indicate survival/death outcome)
 # l2i: rate L -> I
 # i2d: rate I -> D
 # i2h: rate I -> H/H_s
@@ -121,12 +121,12 @@ data <- rbind(tibble(date = seq.Date(start_date, min(data$date), by = "1 days"))
 # tau: generation time
 # std_W:    standard deviation of the weiner process to perturb the foi       
 ### Measurement model
-# epsilon:  under-rerpoting fraction
+# epsilon:  under-reporting fraction
 
 # Set variables -----------------------------------------------------------
 
 # Number of compartements for each variable to represent Erlang distributions
-n_comparements <- list(
+n_compartments <- list(
   S = 1,
   E = 1,
   L = 1,
@@ -143,8 +143,8 @@ n_comparements <- list(
 # define stat variable names for each district
 state_names <- mapply(
   function(n, comp) {if(n == 1) {comp} else {str_c(comp, 1:n)}},
-  n = n_comparements, 
-  comp = names(n_comparements)) %>% 
+  n = n_compartments, 
+  comp = names(n_compartments)) %>% 
   unlist() %>% 
   c("H_curr", "U_curr", "D", "X", "N",
     "a_I", "a_H", "a_U", "a_D", "a_DH", "a_DI", "a_DU", "a_O", "a_deltaH",
@@ -409,13 +409,13 @@ init.Csnippet <- Csnippet("X = log(R0_0 * i2o);
 t_start <- dateToYears(start_date)
 t_end <- dateToYears(end_date)
 
-canton_populations <- read_csv("data/ch/geodata.csv")
+geodata <- read_csv("data/ch/geodata.csv")
 # initialize empty paramter vector
 params <- set_names(rep(0, length(param_names)), param_names)
 input_params <- unlist(yaml::read_yaml("COVID-pomp/data/parameters.yaml"))
 params[param_fixed_names] <- as.numeric(input_params[param_fixed_names])
 
-params["pop"] <- canton_populations$pop2018[canton_populations$ShortName == canton]
+params["pop"] <- geodata$pop2018[geodata$ShortName == canton]
 
 # Initialize the parameters to estimate (just initial guesses)
 params["std_W"] <- 0#1e-4
@@ -603,7 +603,7 @@ filter_dists <- foreach(pari = iter(best_params, "row"),
                           }
                         }
 
-save(filter_dists, file = filter_filename)
+saveRDS(filter_dists %>% mutate(ShortName = canton), file = filter_filename)
 
 stopCluster(cl)
 closeAllConnections()
