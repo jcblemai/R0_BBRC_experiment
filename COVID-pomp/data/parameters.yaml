@@ -7,7 +7,7 @@ i2h: 0.333
 # time symptoms to death not hospitalized: 14 days
 id2o: 0.07142
 # rate hospitalization to death without ICU: fitted to VD data (k=2) 
-hd2d: 0.375
+hd2d: 0.0555
 # rate hospitalization to ICU: fitted to VD data (k=1)
 h2u: 0.496
 # rate hospitalization to recovery: fitted to VD data (k=2)

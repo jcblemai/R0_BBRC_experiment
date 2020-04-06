@@ -1,0 +1,268 @@
+# Title: POMP model of COVID19 in CH, cantonal level
+library(tidyverse)
+library(doSNOW)
+library(pomp)
+library(magrittr)
+library(foreach)
+library(itertools)
+library(lubridate)
+library(parallel)
+library(sf)
+library(glue)
+select <- dplyr::select
+source("COVID-pomp/scripts/skellam.R")
+source("COVID-pomp/scripts/utils.R")
+source("COVID-pomp/scripts/mifCooling.R")
+
+option_list = list(
+  optparse::make_option(c("-c", "--config"), action="store", default='config.yaml', type='character', help="path to the config file"),
+  optparse::make_option(c("-j", "--jobs"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
+  optparse::make_option(c("-r", "--run_level"), action="store", default=1, type='numeric', help="run level for MIF"),
+  optparse::make_option(c("-p", "--place"), action="store", default='VD', type='character', help="name of place to be run, a Canton abbrv. in CH"),
+  optparse::make_option(c("-l", "--likelyhood"), action="store", default='c-d-deltah', type='character', help="likelyhood to be used for filtering")
+)
+opt = optparse::parse_args(optparse::OptionParser(option_list=option_list))
+config <- load_config(opt$c)
+
+
+# Setup ------------------------------------------------------------------------
+# Read Rscript arguments
+canton <- opt$place
+
+# Which likelihood components to use?
+# deltah: balances of inputs and outputs from hospitals
+# c: cases
+# d: total deaths
+lik_components <- str_split(opt$likelyhood, "-")[[1]]#c("deltah", "c", "d")
+lik_log <- str_c(str_c("ll_", lik_components), collapse = "+")
+lik <- str_c(str_c("ll_", lik_components), collapse = "*")
+# Test for cases in the likelihood
+ll_cases <- "c" %in% lik_components
+suffix <- glue("{config$name}_{canton}_{str_c(lik_components, collapse = '-')}")
+
+
+# Data ---------------------------------------------------------------
+
+data_file <- glue("data/ch/cases/COVID19_Fallzahlen_Kanton_{canton}_total.csv")
+
+cases_data <- read_csv(data_file, col_types = cols()) %>% 
+  mutate(cases = c(NA, diff(ncumul_conf)),
+         deaths = c(NA, diff(ncumul_deceased)),
+         cum_deaths = ncumul_deceased,
+         hosp_curr = ncumul_hosp,
+         discharged = c(ncumul_released[1], diff(ncumul_released)),
+         delta_hosp = c(hosp_curr[1], diff(hosp_curr)),
+         delta_ID = delta_hosp + discharged)
+
+data <- select(cases_data, 
+              date, cases, deaths, cum_deaths, hosp_curr, discharged, delta_hosp, delta_ID) %>% 
+  mutate(hosp_incid = NA)
+
+# Set start date 
+start_date <- with(data, 
+                   min(c(date[which(!is.na(cases))[1]] - 5, 
+                         date[which(!is.na(hosp_curr))[1]] - 8)))#as.Date("2020-02-20")
+
+end_date <- as.Date("2020-05-31")
+
+# Add rows
+data <- rbind(tibble(date = seq.Date(start_date, min(data$date), by = "1 days")) %>% 
+                cbind(data[1, -1] %>% mutate_all(function(x) x <- NA)) , data)
+
+
+
+# Build pomp object -------------------------------------------------------
+source("COVID-pomp/scripts/pomp_skeleton.R")
+
+# Start and end dates of epidemic
+t_start <- dateToYears(start_date)
+t_end <- dateToYears(end_date)
+
+geodata <- read_csv(config$setup, col_types = cols())
+# initialize empty paramter vector
+params <- set_names(rep(0, length(param_names)), param_names)
+input_params <- unlist(yaml::read_yaml(config$parameters))
+params[param_fixed_names] <- as.numeric(input_params[param_fixed_names])
+
+params["pop"] <- geodata$pop2018[geodata$ShortName == canton]
+
+# Initialize the parameters to estimate (just initial guesses)
+params["std_W"] <- 0#1e-4
+params["std_X"] <- 0#1e-4
+params["epsilon"] <- 1
+params["k"] <- 5
+params["I_0"] <- 10/params["pop"]
+
+# adjust the rate parameters depending on the integration delta time in years (some parameter inputs given in days)
+params[param_rates_in_days_names] <- params[param_rates_in_days_names] * 365.25
+params["R0_0"] <- 2
+
+# rate of simulation in fractions of years
+dt_yrs <- 1/(3*365.25)
+
+# data for pomp
+data_pomp <- data %>% 
+  mutate(time = dateToYears(date)) %>% 
+  select(-date, -cum_deaths)
+
+covid <- pomp(
+  # set data
+  data = data_pomp, 
+  # time column
+  times = "time",
+  # initialization time
+  t0 = t_start - dt_yrs,
+  # parameter names
+  paramnames = param_names,
+  # parameter vector
+  params = params,
+  # names of state variables
+  statenames = state_names,
+  # process simulator
+  rprocess = euler(step.fun = proc.Csnippet, delta.t = dt_yrs),
+  # measurement model simulator
+  rmeasure =  rmeasure.Csnippet,
+  # measurement model density
+  dmeasure = dmeasure.Csnippet,
+  # names of accumulator variables to be re-initalized at each observation timestep 
+  accumvars = state_names[str_detect(state_names, "a_")],
+  # initializer
+  rinit = init.Csnippet,
+  partrans = parameter_trans(
+    log = c("std_X", "R0_0", ifelse(ll_cases, "k", NA)) %>% .[!is.na(.)],
+    logit = c("I_0", ifelse(ll_cases, "epsilon", NA)) %>% .[!is.na(.)]
+  ),
+  # Add density and generation fuctions for Skellam dist
+  globals = str_c(dskellam.C, rskellam.C, sep = "\n")
+)
+
+save(covid, file = glue("COVID-pomp/interm/pomp_{suffix}.rda"))
+
+cat("************ \n SAVED:", canton, "pomp object \n************")
+
+
+cat("************ \nFITTING:", canton, "with likelihood:", opt$likelyhood, "\n************")
+
+
+# files for results
+ll_filename <- glue("COVID-pomp/results/loglik_exploration_{suffix}.csv")
+mif_filename <- glue("COVID-pomp/results/mif_sir_sde_{suffix}.rda")
+
+# Level of detail on which to run the computations
+run_level <- opt$run_level
+sir_Np <- c(1e3, 3e3, 4e3)
+sir_Nmif <- c(2, 20, 200)
+sir_Ninit_param <- c(opt$jobs/2, opt$jobs,opt$jobs)
+sir_NpLL <- c(1e3, 1e4, 1e4)
+sir_Nreps_global <- c(2, 5, 10)
+
+# parallel computations
+cl <- makeCluster(opt$jobs)
+registerDoSNOW(cl)
+
+# Setup MIF parameters -----------------------------------------------------
+
+# values of the random walks standard deviations
+rw.sd_rp <- 0.02  # for the regular (process and measurement model) parameters
+rw.sd_rp_prior <- 0.005  # for the more uncertain random walk on std_X
+rw.sd_ivp <- 0.2  # for the initial value parameters
+rw.sd_ivp_prior <- 0.05  # for the initial value parameters
+rw.sd_param <- set_names(c(rw.sd_rp, rw.sd_rp_prior, rw.sd_ivp, rw.sd_ivp_prior), c("regular", "prior", "ivp", "ivpprior"))
+
+# lower bound for positive parameter values
+min_param_val <- 1e-5 
+# define the bounds for the parameters to estimate
+parameter_bounds <- tribble(
+  ~param, ~lower, ~upper,
+  # Process noise
+  "std_X", -2, 2, #in log-scale
+  # Measurement model
+  "k", .1, 10,
+  "epsilon", 0.2, 0.5,
+  # Initial conditions
+  "I_0", 10/params["pop"], 100/params["pop"],
+  "R0_0", 1.5, 3
+)
+
+if (!ll_cases) {
+  parameter_bounds <- parameter_bounds %>% filter(!(param %in% c("k", "epsilon")))
+}
+
+# convert to matrix for ease
+parameter_bounds <- set_rownames(as.matrix(parameter_bounds[, -1]), parameter_bounds[["param"]])
+
+# create random vectors of initial parameters given the bounds
+init_params <- sobolDesign(lower = parameter_bounds[, "lower"],
+                           upper = parameter_bounds[, "upper"], 
+                           nseq =  sir_Ninit_param[run_level]) 
+
+# convert certain parameters back to log-scale 
+param_logbound_names <- c("std_X")
+init_params[, param_logbound_names] <- exp(init_params[, param_logbound_names])
+
+# bind with the fixed valued parameters
+init_params <- cbind(init_params, 
+                     matrix(rep(params[param_fixed_names],
+                                each = sir_Ninit_param[run_level]),
+                            nrow = sir_Ninit_param[run_level]) %>% 
+                       set_colnames(param_fixed_names))
+
+job_rw.sd <- eval(
+  parse(
+    text = str_c("rw.sd(",
+                 " std_X  = ", rw.sd_param["regular"],
+                 ", k  = ", ifelse(ll_cases, rw.sd_param["regular"], 0),
+                 ", epsilon  = ", ifelse(ll_cases, rw.sd_param["regular"], 0),
+                 ", I_0  = ivp(",  rw.sd_param["ivp"], ")",
+                 ", R0_0  = ivp(",  rw.sd_param["ivp"], ")",
+                 ")")
+  )
+)
+
+# MIF --------------------------------------------------------------------------
+
+# MIF it! 
+t1 <- system.time({
+  mf <- foreach(parstart = iter(init_params, by = "row"),
+                .inorder = F, 
+                .packages = "pomp",
+                .errorhandling = "remove") %dopar% {
+                  mif2(covid,
+                       params = parstart,
+                       Np = sir_Np[run_level],
+                       Nmif = sir_Nmif[run_level],
+                       cooling.type = "geometric",
+                       cooling.fraction.50 = findAlpha(sir_Nmif[run_level], nrow(data_pomp)),
+                       rw.sd = job_rw.sd,
+                       verbose = F)
+                }})
+
+save(t1, mf, file = mif_filename)
+
+cat("----- Done MIF, took", round(t1["elapsed"]/60), "mins \n")
+# Log-lik ------------------------------------------------------------------
+
+t2 <- system.time({
+  liks <- foreach(mfit = mf,
+                  .inorder = T, 
+                  .packages = "pomp",
+                  .combine = rbind,
+                  .errorhandling = "remove"
+  ) %dopar% {
+    # compute log-likelihood estimate by repeating filtering with the given param vect
+    ll <-  logmeanexp(
+      replicate(sir_Nreps_global[run_level],
+                logLik(
+                  pfilter(covid,
+                          params = pomp::coef(mfit),
+                          Np = sir_NpLL[run_level])
+                )
+      ), se = TRUE)
+    # save to dataframe
+    data.frame(loglik = ll[1], loglik_se = ll[2], t(coef(mfit)))
+  }
+})
+
+write_csv(liks, path = ll_filename, append = file.exists(ll_filename))
+
+cat("----- Done LL, took", round(t2["elapsed"]/60), "mins \n")
