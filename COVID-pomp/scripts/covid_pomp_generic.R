@@ -364,7 +364,7 @@ proc.Csnippet <- Csnippet("
                           a_DU += dN[20];
                           a_D  = a_DH + a_DI + a_DU;
                           a_O  += dN[12] + dN[18]; // discharged from hospital
-                          a_deltaH = a_H - a_DH - a_DU - a_0;
+                          a_deltaH = a_H - a_DH - a_DU - a_O;
                           // Current
                           U_curr = U_s1 + U_s2 + U_d1 + U_d2;
                           H_curr = H_s1 + H_s2 + H + H_d1 + H_d2 + U_s1 + U_s2 + U_d1 + U_d2;
