@@ -2,57 +2,62 @@
 # Description: POMP analysis
 
 # Preamble ---------------------------------------------------------------
-library(tidyverse)
+library(dplyr)
+library(stringr)
+library(purrr)
+library(tidyr)
+library(readr)
 library(doSNOW)
 library(pomp)
 library(magrittr)
 library(foreach)
 library(itertools)
-library(lubridate)
-library(sf)
 library(glue)
 # rm(list = ls())
 select <- dplyr::select
 
-source("COVID-pomp/scripts/skellam.R")
-source("COVID-pomp/scripts/mifCooling.R")
-# Setup ------------------------------------------------------------------------
-# Read Rscript arguments
-args <- commandArgs(trailingOnly = T)
-# args <- c("VD", "d")
-canton <- args[1]
+source("~/data/Javier/COVID-19_CH/COVID-pomp/scripts/skellam.R")
+source("~/data/Javier/COVID-19_CH/COVID-pomp/scripts/mifCooling.R")
 
+# Setup ------------------------------------------------------------------------
+canton_list <- c("VD") 
+# Read Rscript arguments
+# args <- commandArgs(trailingOnly = T)
+args <- "d"
+canton_num <- 1
+# canton_num <- as.numeric(as.integer(Sys.getenv('SLURM_ARRAY_TASK_ID')))
+canton <- canton_list[canton_num]
 # Which likelihood components to use?
 # deltah: balances of inputs and outputs from hospitals
 # c: cases
 # d: total deaths
-lik_components <- str_split(args[2], "-")[[1]]#c("deltah", "c", "d")
+lik_components <- str_split(args[1], "-")[[1]]#c("deltah", "c", "d")
 lik_log <- str_c(str_c("ll_", lik_components), collapse = "+")
 lik <- str_c(str_c("ll_", lik_components), collapse = "*")
 
 # Test for cases in the likelihood
 ll_cases <- "c" %in% lik_components
 
-cat("************ \nFITITNG:", canton, "with likelihood:", args[2], "\n************")
+cat("************ \nFITITNG:", canton, "with likelihood:", args[1], "\n************")
 
 suffix <- glue("covid_{canton}_{str_c(lik_components, collapse = '-')}")
 
 # files for results
-ll_filename <- glue("COVID-pomp/results/loglik_exploration_{suffix}.csv")
-mif_filename <- glue("COVID-pomp/results/mif_sir_sde_{suffix}.rda")
-filter_filename <- glue("COVID-pomp/results/filtered_{suffix}.rds")
+ll_filename <- glue("~/scratch/Javier/COVID-19_CH/COVID-pomp/results/loglik_exploration_{suffix}.csv")
+mif_filename <- glue("~/scratch/Javier/COVID-19_CH/COVID-pomp/results/mif_sir_sde_{suffix}.rda")
+filter_filename <- glue("~/scratch/Javier/COVID-19_CH/COVID-pomp/results/filtered_{suffix}.rds")
 
-ncpus <- 8
+ncpus <- 10
 
 # Level of detail on which to run the computations
-run_level <- 3
+run_level <- 1
 sir_Np <- c(1e3, 3e3, 3e3)
-sir_Nmif <- c(2, 20, 100)
-sir_Ninit_param <- c(ncpus, 8, ncpus)
+sir_Nmif <- c(2, 20, 150)
+sir_Ninit_param <- c(ncpus, 8, ncpus * 2)
 sir_NpLL <- c(1e3, 1e4, 1e4)
 sir_Nreps_global <- c(2, 5, 10)
 
-n_filter <- 500
+n_filter <- 1e3
 
 # parallel computations
 cl <- makeCluster(ncpus)
@@ -75,7 +80,7 @@ yearsToDateTime <- function(year_frac, origin = as.Date("2020-01-01"), yr_offset
 
 
 # Data ---------------------------------------------------------------
-data_file <- glue("data/ch/cases/COVID19_Fallzahlen_Kanton_{canton}_total.csv")
+data_file <- glue("~/data/Javier/COVID-19_CH/data/ch/cases/COVID19_Fallzahlen_Kanton_{canton}_total.csv")
 
 cases_data <- read_csv(data_file, col_types = cols()) %>% 
   mutate(cases = c(NA, diff(ncumul_conf)),
@@ -255,7 +260,6 @@ proc.Csnippet <- Csnippet("
                           double dN[21];        // vector of transitions between classes during integration timestep
 
                           // force of infection
-                          //foi = (t <= tlockdown) ? exp(X) * (I1)/N : alpha * exp(X) * (I1)/N;
                           foi =  exp(X) * (I1 + I2 + I3)/N;
 
                           if(std_W > 0.0) {
@@ -340,15 +344,15 @@ proc.Csnippet <- Csnippet("
                           I_d  += dN[4] - dN[9] - dN[10];
                           H_s1 += dN[5] - dN[11];
                           H_s2 += dN[11] - dN[12];
-                          H += dN[7] - dN[13] - dN[14];
+                          H    += dN[7] - dN[13] - dN[14];
                           H_d1 += dN[6] - dN[15];
                           H_d2 += dN[15] - dN[16];
                           U_s1 += dN[14] - dN[17];
                           U_s2 += dN[17] - dN[18];
                           U_d1 += dN[13] - dN[19];
                           U_d2 += dN[19] - dN[20];
-                          R += dN[8] + dN[9] + dN[12] + dN[18];
-                          D += dN[10] + dN[16] + dN[20];
+                          R    += dN[8] + dN[9] + dN[12] + dN[18];
+                          D    += dN[10] + dN[16] + dN[20];
                           
                           // Accumulators
                           a_I += dN[1];
@@ -415,10 +419,10 @@ init.Csnippet <- Csnippet("X = log(R0_0 * i2o);
 t_start <- dateToYears(start_date)
 t_end <- dateToYears(end_date)
 
-geodata <- read_csv("data/ch/geodata.csv", col_types = cols())
+geodata <- read_csv("~/data/Javier/COVID-19_CH/data/ch/geodata.csv", col_types = cols())
 # initialize empty paramter vector
 params <- set_names(rep(0, length(param_names)), param_names)
-input_params <- unlist(yaml::read_yaml("COVID-pomp/data/parameters.yaml"))
+input_params <- unlist(yaml::read_yaml("~/data/Javier/COVID-19_CH/COVID-pomp/data/parameters.yaml"))
 params[param_fixed_names] <- as.numeric(input_params[param_fixed_names])
 
 params["pop"] <- geodata$pop2018[geodata$ShortName == canton]
@@ -473,7 +477,7 @@ covid <- pomp(
   globals = str_c(dskellam.C, rskellam.C, sep = "\n")
 )
 
-save(covid, file = glue("COVID-pomp/interm/pomp_object_{canton}.rda"))
+save(covid, file = glue("~/data/Javier/COVID-19_CH/COVID-pomp/interm/pomp_object_{canton}.rda"))
 
 # Setup MIF parameters -----------------------------------------------------
 
@@ -547,7 +551,7 @@ t1 <- system.time({
                        Np = sir_Np[run_level],
                        Nmif = sir_Nmif[run_level],
                        cooling.type = "geometric",
-                       cooling.fraction.50 = findAlpha(sir_Nmif[run_level], nrow(data_pomp)),
+                       cooling.fraction.50 = 0.6,
                        rw.sd = job_rw.sd,
                        verbose = F)
                 }})
@@ -588,15 +592,17 @@ best_params <- liks %>%
   select(-contains("log")) %>% 
   slice(1:3)
 
+packs <- c("pomp", "dplyr", "tibble", "stringr", "foreach", "magrittr", "tidyr")
+
 t3 <- system.time({
   filter_dists <- foreach(pari = iter(best_params, "row"),
                           pit = icount(nrow(best_params)),
-                          .packages = c("pomp", "tidyverse", "foreach", "magrittr"),
+                          .packages = packs,
                           .combine = rbind,
                           .noexport = c("par")) %do% {
                             foreach(it = icount(n_filter),
                                     .combine = rbind,
-                                    .packages = c("pomp", "tidyverse", "foreach", "magrittr")
+                                    .packages = packs
                             ) %dopar% {
                               
                               pf <- pfilter(covid, params = as.vector(pari), Np = 3e3, filter.traj = T)
@@ -620,47 +626,3 @@ closeAllConnections()
 
 cat("----- Done filtering, took", round(t3["elapsed"]/60), "mins \n")
 
-
-filter_stats <- filter_dists %>% 
-  group_by(time, parset, var) %>% 
-  summarise(mean = mean(value, na.rm = T),
-            q025 = quantile(value, 0.025, na.rm = T),
-            q975 = quantile(value, 0.975, na.rm = T),
-            q25 = quantile(value, 0.25, na.rm = T),
-            q75 = quantile(value, 0.75, na.rm = T)) %>%
-  ungroup() %>% 
-  mutate(date = yearsToDate(time),
-         parset = factor(parset))
-
-plot_states <- c("tot_I", "Rt", state_names[str_detect(state_names, "a_|_curr")], "D") 
-
-p <- ggplot(filter_stats %>% filter(var %in% plot_states), aes(x = date)) +
-  geom_ribbon(aes(ymin = q025, ymax = q975, fill = parset), alpha = .2) +
-  geom_ribbon(aes(ymin = q25, ymax = q75, fill = parset), alpha = .2) +
-  # geom_line(aes(y = mean)) +
-  geom_point(data = data %>%
-               mutate(time = dateToYears(date),
-                      cases = cases / best_params[["epsilon"]][1],
-                      deaths = case_when(is.na(deaths) ~ 0,T ~  deaths),
-                      cum_deaths = cumsum(deaths)) %>%
-               rename(
-                 a_I = cases,
-                 # a_DU = deaths_icu_incid,
-                 # a_DH = deaths_noicu_incid,
-                 # a_DI = deaths_nohosp_incid,
-                 a_H = hosp_incid,
-                 # a_U = icu_incid,
-                 # U_curr = icu_curr,
-                 H_curr = hosp_curr,
-                 D = cum_deaths,
-                 a_D = deaths,
-                 a_O = discharged,
-                 a_deltaH = delta_hosp,
-                 a_deltaID = delta_ID
-               ) %>% 
-               gather(var, value, -time, -date),
-             aes(y = value)) +
-  facet_wrap(~var, scales = "free")  +
-  theme_bw()
-
-ggsave(p, filename = glue("COVID-pomp/results/figs/plot_{suffix}.png"), width = 9, height = 6)
