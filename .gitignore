@@ -9,13 +9,17 @@
 *.Rproj
 # Example code in package build process
 *-Ex.R
-
+*.zip
+*.log
+*.html
 # Output files from R CMD build
 /*.tar.gz
-
+*.rda
+*.rds
 # Output files from R CMD check
 /*.Rcheck/
-
+*/results/*.csv
+*/results/figs/*.png
 # RStudio files
 .Rproj.user/
 
