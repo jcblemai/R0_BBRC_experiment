@@ -1,6 +1,6 @@
 ---
 title: "COVID CH"
-css: "../../notebooks/report.css"
+#css: "../../notebooks/report.css"
 output: html_document
 ---
 
@@ -89,7 +89,7 @@ We estimate four paramaters to available cantonal level data (Table 1). The main
 
 ```{r params, echo=FALSE, message=FALSE, warning=FALSE}
 library(yaml)
-params <- as.data.frame(yaml::read_yaml("../data/parameters.yaml"))
+params <- as.data.frame(yaml::read_yaml("../COVID-pomp/data/parameters.yaml"))
 ncomps <- tribble(
   ~parameter, ~ncomp,
   "e2i", 1,
