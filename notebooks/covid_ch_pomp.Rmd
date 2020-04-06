@@ -1,6 +1,6 @@
 ---
 title: "COVID CH"
-#css: "../../notebooks/report.css"
+css: "report.css"
 output: html_document
 ---
 
@@ -14,14 +14,65 @@ library(kableExtra)
 library(gridExtra)
 ```
 
+```{r load results}
+source("../COVID-pomp/scripts/graph_utils.R")
+filterstats <- readRDS("../COVID-pomp/results/filtered_states_all.rds")
+cantons_to_analyze <- c("AG", "BE", "FR", "GE", "NE", "VD", "VS", "ZH")
+```
+
+```{r load data}
+# Get data
+fdata <- list.files(path = "../data/ch/cases/", pattern = "COVID19_Fallzahlen_Kanton_*", full.names = TRUE)
+data <- fdata %>%
+  purrr::map(read_csv) %>%    # read in all the files individually, using
+  reduce(bind_rows) %>%
+  rename(ShortName = abbreviation_canton_and_fl) %>% 
+  select(date, ShortName, ncumul_conf, ncumul_hosp, ncumul_ICU, ncumul_deceased, ncumul_released)
+
+data <- data %>% arrange(date) %>% group_by(ShortName) %>%
+  mutate(cases = c(NA, diff(ncumul_conf)),
+         deaths = c(NA, diff(ncumul_deceased)),
+         cum_deaths = ncumul_deceased,
+         hosp_curr = ncumul_hosp,
+         discharged = c(ncumul_released[1], diff(ncumul_released)),
+         delta_hosp = c(hosp_curr[1], diff(hosp_curr)),
+         delta_ID = delta_hosp + discharged) %>%
+  # select(date, cases, deaths, cum_deaths, hosp_curr, discharged, delta_hosp, delta_ID) %>% 
+  mutate(hosp_incid = NA)  %>%
+  ungroup()
+```
+
+
+
 This report presents results on the estimation of changes of the *basic reproduction number* ($R_0$) in time in Switzerland.
 
 ## Main results {.tabset}
 ### Main
-asdsafs
+```{r Rt, fig.cap="**Figure 1. Time-varying estimates of the basice reproduction number $R_0$**.", fig.width=8, fig.height=7}
+plot_states(filterstats, "Rt", cantons = cantons_to_analyze)
+```
+
+```{r reduction, fig.width=5, fig.height=5}
+r0_reduction <- readRDS("../COVID-pomp/results/R0_reduction.rds")
+r0_reduction %>% 
+  filter(var == "r0change") %>% 
+  ggplot(aes(x = ShortName, color = ll_comp)) +
+  geom_point(aes(y = mean * 100), size  = 2.5) + 
+  geom_errorbar(aes(ymin = q25 * 100 , ymax = q75 * 100), size = 1.5, width  = 0) +
+  geom_errorbar(aes(ymin = q025 * 100 , ymax = q975 * 100), width  = 0) + 
+  coord_flip() +
+  labs(y = "Percent change in R0", x = "canton") +
+  scale_color_manual(values = c("#F7A62D", "#9D5EE0")) +
+  theme_bw()
+```
+
 
 ### Additional results
-adasdsa
+```{r fits, fig.cap="**Figure 2. Model fit to data**.", fig.width=10, fig.height=6}
+states_to_plot <- c("tot_I", "D", "H_curr", "U_curr")
+plot_cnt_all(filterstats, data, states_to_plot, cantons_to_analyze)
+```
+
 
 ### Methods
 
