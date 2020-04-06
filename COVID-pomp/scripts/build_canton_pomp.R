@@ -18,7 +18,7 @@ option_list = list(
   optparse::make_option(c("-c", "--config"), action="store", default='config.yaml', type='character', help="path to the config file"),
   optparse::make_option(c("-j", "--jobs"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-r", "--run_level"), action="store", default=1, type='numeric', help="run level for MIF"),
-  optparse::make_option(c("-p", "--place"), action="store", default='VD', type='character', help="name of place to be run, a Canton abbrv. in CH"),
+  optparse::make_option(c("-p", "--place"), action="store", default='BE', type='character', help="name of place to be run, a Canton abbrv. in CH"),
   optparse::make_option(c("-l", "--likelyhood"), action="store", default='c-d-deltah', type='character', help="likelyhood to be used for filtering")
 )
 opt = optparse::parse_args(optparse::OptionParser(option_list=option_list))
@@ -69,6 +69,7 @@ end_date <- as.Date("2020-05-31")
 data <- rbind(tibble(date = seq.Date(start_date, min(data$date), by = "1 days")) %>% 
                 cbind(data[1, -1] %>% mutate_all(function(x) x <- NA)) , data)
 
+data <- data %>% complete(date = seq.Date(start_date,end_date, by="day"))
 
 
 # Build pomp object -------------------------------------------------------

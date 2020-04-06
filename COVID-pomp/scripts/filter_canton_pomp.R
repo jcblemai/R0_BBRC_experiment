@@ -16,7 +16,7 @@ source("COVID-pomp/scripts/utils.R")
 
 option_list = list(
   optparse::make_option(c("-c", "--config"), action="store", default='config.yaml', type='character', help="path to the config file"),
-  optparse::make_option(c("-p", "--place"), action="store", default='VD', type='character', help="name of place to be run, a Canton abbrv. in CH"),
+  optparse::make_option(c("-p", "--place"), action="store", default='BE', type='character', help="name of place to be run, a Canton abbrv. in CH"),
   optparse::make_option(c("-j", "--jobs"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-l", "--likelyhood"), action="store", default='c-d-deltah', type='character', help="likelyhood to be used for filtering")
 )
