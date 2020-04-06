@@ -9,46 +9,56 @@ library(magrittr)
 library(foreach)
 library(itertools)
 library(lubridate)
+library(parallel)
 library(sf)
 library(glue)
-# rm(list = ls())
-select <- dplyr::select
 
+select <- dplyr::select
 source("COVID-pomp/scripts/skellam.R")
 source("COVID-pomp/scripts/mifCooling.R")
+source("COVID-pomp/scripts/utils.R")
+
+option_list = list(
+  optparse::make_option(c("-c", "--config"), action="store", default='config.yaml', type='character', help="path to the config file"),
+  optparse::make_option(c("-p", "--place"), action="store", default='VD', type='character', help="name of place to be run, a Canton abbrv. in CH"),
+  optparse::make_option(c("-j", "--jobs"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
+  optparse::make_option(c("-r", "--run_level"), action="store", default=3, type='numeric', help="run level for MIF"),
+  optparse::make_option(c("-l", "--likelyhood"), action="store", default='c-d-deltah', type='character', help="likelyhood to be used for filtering")
+)
+opt = optparse::parse_args(optparse::OptionParser(option_list=option_list))
+config <- load_config(opt$c)
+
+
 # Setup ------------------------------------------------------------------------
 # Read Rscript arguments
-args <- commandArgs(trailingOnly = T)
-# args <- c("VD", "d")
-canton <- args[1]
+canton <- opt$place
 
 # Which likelihood components to use?
 # deltah: balances of inputs and outputs from hospitals
 # c: cases
 # d: total deaths
-lik_components <- str_split(args[2], "-")[[1]]#c("deltah", "c", "d")
+lik_components <- str_split(opt$likelyhood, "-")[[1]]#c("deltah", "c", "d")
 lik_log <- str_c(str_c("ll_", lik_components), collapse = "+")
 lik <- str_c(str_c("ll_", lik_components), collapse = "*")
 
 # Test for cases in the likelihood
 ll_cases <- "c" %in% lik_components
 
-cat("************ \nFITITNG:", canton, "with likelihood:", args[2], "\n************")
+cat("************ \nFITTING:", canton, "with likelihood:", opt$likelyhood, "\n************")
 
-suffix <- glue("covid_{canton}_{str_c(lik_components, collapse = '-')}")
+suffix <- glue("{config$name}_{canton}_{str_c(lik_components, collapse = '-')}")
 
 # files for results
 ll_filename <- glue("COVID-pomp/results/loglik_exploration_{suffix}.csv")
 mif_filename <- glue("COVID-pomp/results/mif_sir_sde_{suffix}.rda")
 filter_filename <- glue("COVID-pomp/results/filtered_{suffix}.rds")
 
-ncpus <- 8
 
 # Level of detail on which to run the computations
-run_level <- 3
+run_level <- opt$run_level
 sir_Np <- c(1e3, 3e3, 4e3)
 sir_Nmif <- c(2, 20, 200)
-sir_Ninit_param <- c(ncpus, 8, ncpus)
+sir_Ninit_param <- c(opt$jobs/2, opt$jobs,opt$jobs)
 sir_NpLL <- c(1e3, 1e4, 1e4)
 sir_Nreps_global <- c(2, 5, 10)
 
@@ -60,18 +70,6 @@ registerDoSNOW(cl)
 
 # pomp analysis -----------------------------------------------------------
 
-# function to convert dates to fractions of years for model
-dateToYears <- function(date, origin = as.Date("2020-01-01"), yr_offset = 2020) {
-  julian(date, origin = origin)/365.25 + yr_offset
-}
-
-yearsToDate <- function(year_frac, origin = as.Date("2020-01-01"), yr_offset = 2020.0) {
-  as.Date((year_frac - yr_offset) * 365.25, origin = origin)
-}
-
-yearsToDateTime <- function(year_frac, origin = as.Date("2020-01-01"), yr_offset = 2020.0) {
-  as.POSIXct((year_frac - yr_offset) * 365.25 * 3600 * 24, origin = origin)
-}
 
 
 # Data ---------------------------------------------------------------
@@ -422,10 +420,10 @@ init.Csnippet <- Csnippet("X = log(R0_0 * i2o);
 t_start <- dateToYears(start_date)
 t_end <- dateToYears(end_date)
 
-geodata <- read_csv("data/ch/geodata.csv", col_types = cols())
+geodata <- read_csv(config$setup, col_types = cols())
 # initialize empty paramter vector
 params <- set_names(rep(0, length(param_names)), param_names)
-input_params <- unlist(yaml::read_yaml("COVID-pomp/data/parameters.yaml"))
+input_params <- unlist(yaml::read_yaml(config$parameters))
 params[param_fixed_names] <- as.numeric(input_params[param_fixed_names])
 
 params["pop"] <- geodata$pop2018[geodata$ShortName == canton]
