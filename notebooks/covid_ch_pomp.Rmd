@@ -1,5 +1,5 @@
 ---
-title: "COVID CH"
+title: ""
 css: "report.css"
 output: html_document
 ---
@@ -7,17 +7,24 @@ output: html_document
 ```{r setup, include=FALSE}
 options(scipen=999)
 knitr::opts_chunk$set(echo = F, message=F, warning = F)
-
+knitr::opts_knit$set(eval.after = "fig.cap")
 library(tidyverse)
 library(knitr)
 library(kableExtra)
 library(gridExtra)
+library(glue)
 ```
 
 ```{r load results}
 source("../COVID-pomp/scripts/graph_utils.R")
-filterstats <- readRDS("../COVID-pomp/results/filtered_states_all.rds")
+
+ll_to_use <- "c-d-deltah"
+#  Time windows
+load("../COVID-pomp/results/computation_time_windows.rda")  
 cantons_to_analyze <- c("AG", "BE", "FR", "GE", "NE", "VD", "VS", "ZH")
+
+filterstats <- readRDS("../COVID-pomp/results/filtered_states_all.rds") %>%
+  filter(ll_comp == ll_to_use)
 ```
 
 ```{r load data}
@@ -43,40 +50,88 @@ data <- data %>% arrange(date) %>% group_by(ShortName) %>%
 ```
 
 
+# COVID in Switzerland {.tabset}
 
 This report presents results on the estimation of changes of the *basic reproduction number* ($R_0$) in time in Switzerland.
 
-## Main results {.tabset}
-### Main
-```{r Rt, fig.cap="**Figure 1. Time-varying estimates of the basice reproduction number $R_0$**.", fig.width=8, fig.height=7}
+## $R_0$
+### Time-varying estimates of $R_0$
+```{r Rt, fig.cap="**Figure 1. Time-varying estimates of the basice reproduction number $R_0$**.", fig.width=9, fig.height=4}
 plot_states(filterstats, "Rt", cantons = cantons_to_analyze)
 ```
 
-```{r reduction, fig.width=5, fig.height=5}
-r0_reduction <- readRDS("../COVID-pomp/results/R0_reduction.rds")
+```{r reduction, fig.cap=paste("**Figure 2. Percent change of $R_0$**. Relative change was computed based on the mean value of $R_0$ in the time windows",  paste(format(tw_left, "%B %d"), collapse = "-"), "and",  paste(format(tw_right, "%B %d"), collapse = "-"), "of simulations. Lines give the 95% simulation envelope, thick line the IQR and points the medians."), fig.width=5, fig.height=4}
+r0_reduction <- readRDS("../COVID-pomp/results/R0_reduction.rds") %>% 
+  filter(ll_comp == ll_to_use)
+
+
 r0_reduction %>% 
   filter(var == "r0change") %>% 
-  ggplot(aes(x = ShortName, color = ll_comp)) +
-  geom_point(aes(y = mean * 100), size  = 2.5) + 
-  geom_errorbar(aes(ymin = q25 * 100 , ymax = q75 * 100), size = 1.5, width  = 0) +
-  geom_errorbar(aes(ymin = q025 * 100 , ymax = q975 * 100), width  = 0) + 
+  ggplot(aes(x = ShortName)) +
+  geom_hline(aes(yintercept = 1), lty = 2, size = .5) +
+  geom_point(aes(y = median), size  = 2.5) + 
+  geom_errorbar(aes(ymin = q25 , ymax = q75 ), size = 1.5, width  = 0) +
+  geom_errorbar(aes(ymin = q025, ymax = q975 ), width  = 0) + 
   coord_flip() +
-  labs(y = "Percent change in R0", x = "canton") +
-  scale_color_manual(values = c("#F7A62D", "#9D5EE0")) +
+  labs(y = bquote('Percent change in '*R[0]*''), x = "canton") +
+  scale_y_continuous(breaks = seq(0.25, 1, by = 0.25), labels = str_c("-", seq(75, 0, by = -25), "%"))+
   theme_bw()
 ```
 
+```{r timeto1, fig.cap="**Figure 3. Time to $R_0 < 1$**. Legend as in Figure 2.", fig.width=5, fig.height=4}
+r0_reduction %>% 
+  filter(var == "t1", ll_comp == ll_to_use) %>% 
+  inner_join(r0_reduction %>% 
+               filter(var == "t1frac", ll_comp == ll_to_use) %>% 
+               ungroup() %>% 
+               select(ShortName, mean) %>% 
+               rename(frac = mean)) %>% 
+  ggplot(aes(x = ShortName)) +
+  geom_point(aes(y = median), size  = 2.5) + 
+  geom_errorbar(aes(ymin = q25 , ymax = q75), size = 1.5, width  = 0) +
+  geom_errorbar(aes(ymin = q025 , ymax = q975), width  = 0) + 
+  coord_flip() +
+  scale_y_continuous(breaks = seq(2, 12, by = 2), labels = format(as.Date("2020-03-15")  + seq(2, 12, by = 2), "%B %d")) +
+  labs(y = bquote('Date at which '*R[0]*' went bellow 1'), x = "canton") +
+  theme_bw()
+```
 
-### Additional results
-```{r fits, fig.cap="**Figure 2. Model fit to data**.", fig.width=10, fig.height=6}
+## Additional results
+
+### Model fit to data
+```{r fits, fig.cap="**Figure 2. Model fit to data**. Note that the discrepancy betwen the reported and simulated number of infections is due to under-reporting, which we estimate as part of the modelling procedure.", fig.width=10, fig.height=6}
 states_to_plot <- c("tot_I", "D", "H_curr", "U_curr")
 plot_cnt_all(filterstats, data, states_to_plot, cantons_to_analyze)
 ```
 
 
-### Methods
+### Values of $R_0$
 
-#### Model diagram
+```{r rtable}
+col_order <- str_c(rep(c("median_r0", "ci_r0"), 2), rep(c("left", "right"), each = 2), sep = "_")
+
+col_headers <- c(" " = 1, " " = 2, " " = 2) %>% 
+  set_names(
+    c(" ",  
+      paste(format(tw_left, "%B %d"), collapse = "-"), 
+      paste(format(tw_right, "%B %d"), collapse = "-"))
+    )
+
+r0_reduction %>% 
+  ungroup() %>% 
+  filter(var %in% c("r0_left", "r0_right")) %>%
+  select(-ll_comp)  %>% 
+  printTable(tabnum = 1,
+             col_headers = col_headers,
+             col_order = col_order)
+
+```
+
+
+
+## Methods
+
+### Model diagram
 We implement a stochastic dynamical model of the epidemic and hospitalization processes based on the SEIR template. The model assumes that infected people have a certain probability of developing severe symptoms, which then either are hospitalized or not. Infected can dye either outside of the hospital system or within it, either in an ICU or not.
 
 The number of compartments in each stage of the disease is determined by fitting an Erlang distribution to the observed times of each transition between classes. Hospital data from VD where used in this analysis.
@@ -130,12 +185,12 @@ The number of compartments in each stage of the disease is determined by fitting
   U$_{d1,2}$: ICU that will die\\
   R: Recovered \\
   D: Dead \\
-  };
+};
 
 \end{tikzpicture}
 ```
 
-#### Parameters
+### Parameters
 We estimate four paramaters to available cantonal level data (Table 1). The main parameter of interest is the basic reproduction number $R_0$. We here allow the value of the paramter to change in time to capture behavioral changes following the successive application of non-pharmasutical interventions (NPIs) by the cantonal and federal governments between March 1st and March 20th. The duration in the infectious state was derived from an assumed generation time of 5.2 days (Ghani et al. 2020), and a latent duration of 4.2 days (i.e. 1 day of infectious but non-symptomatique interval), thus yielding $1/\gamma = 2(5.2 - 4.2) = 2days$.
 
 ```{r params, echo=FALSE, message=FALSE, warning=FALSE}
@@ -200,8 +255,8 @@ gather(params, parameter, value) %>%
                 full_width = F)
 ```
 
-#### Model fitting
-We fit the model to cantonal-level data available from [OpenZH](https://github.com/openZH/covid_19). These include the current number of hospitalized COVID patients, and the cumulative numbers of deaths, cases and hospital discharges. The latter was not available in all cantons. A summary of the data is presented in Table 2. Time-varying transmission $\beta(t) = R_0/\gamma$ was estimated following a similar approach than that in [Cazelles et al. (2018)](https://doi.org/10.1371/journal.pcbi.1006211).
+### Model fitting
+We fit the model to cantonal-level data available from [OpenZH](https://github.com/openZH/covid_19). These include the current number of hospitalized COVID patients, and the cumulative numbers of deaths, cases and hospital discharges. The latter was not available in all cantons. A summary of the data is presented in Table 2. Time-varying transmission $\beta(t) = R_0(t)/\gamma$ was estimated following a similar approach than that in [Cazelles et al. (2018)](https://doi.org/10.1371/journal.pcbi.1006211).
 
 ```{r data}
 
@@ -213,12 +268,13 @@ $$
 \begin{aligned}
 cases(t) &\sim NegBinom(\epsilon \Delta I(t), k)\\
 deaths(t) &\sim Poisson(\Delta D(t)) \\
-\Delta hosp(t) &\sim Skellam(\Delta H(t), \Delta D(t) + \Delta R_H(t)) \\
+\Delta hosp(t) &\sim Skellam(\Delta H(t), \Delta D_H(t) + \Delta R_H(t)) \\
 \end{aligned}
 $$
-where, $\Delta I(t)$, $\Delta D(t)$, $\Delta H(t)$, $\Delta R_H(t)$ are respectively the number of new infected, deaths, hospitalized and discharged from hospitals at time $t$,
+where, $\Delta I(t)$, $\Delta D(t)$, $\Delta H(t)$, $\Delta D_H(t)$, $\Delta R_H(t)$ are respectively the number of new infected, deaths, hospitalized, and deaths and discharged from hospitals at time $t$,
 $\epsilon$ is the reporting rate (between 0 and 1), $k$ is the over-dispersion parameter of the negative binomial distribution, and $\Delta hosp(t)$ is the difference between the number of current hospitalizations at times $t$ and $t-1$, for which we choose a [Skellam distribution](https://en.wikipedia.org/wiki/Skellam_distribution). The full log-likelihood of the observation model was taken as the sum of the individual log-likelihoods of the three data types. 
 
 The model was fit using multiple-iterated filtering as implemented by [Ionides et al. (2015)]( https://doi.org/10.1073/pnas.1410597112) in the [POMP](https://kingaa.github.io/pomp/) R package.
 
 
+### Comparison to other approaches
