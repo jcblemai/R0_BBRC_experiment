@@ -1,6 +1,6 @@
 ---
 title: "COVID CH"
-#css: "../../notebooks/report.css"
+css: "report.css"
 output: html_document
 ---
 

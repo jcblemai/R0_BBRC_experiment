@@ -9,7 +9,9 @@
 *.Rproj
 # Example code in package build process
 *-Ex.R
-
+*.zip
+*.log
+*.html
 # Output files from R CMD build
 /*.tar.gz
 
