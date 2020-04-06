@@ -46,13 +46,13 @@ ncpus <- 8
 
 # Level of detail on which to run the computations
 run_level <- 3
-sir_Np <- c(1e3, 3e3, 3e3)
-sir_Nmif <- c(2, 20, 100)
+sir_Np <- c(1e3, 3e3, 4e3)
+sir_Nmif <- c(2, 20, 200)
 sir_Ninit_param <- c(ncpus, 8, ncpus)
 sir_NpLL <- c(1e3, 1e4, 1e4)
 sir_Nreps_global <- c(2, 5, 10)
 
-n_filter <- 500
+n_filter <- 1e3
 
 # parallel computations
 cl <- makeCluster(ncpus)
@@ -75,6 +75,7 @@ yearsToDateTime <- function(year_frac, origin = as.Date("2020-01-01"), yr_offset
 
 
 # Data ---------------------------------------------------------------
+
 data_file <- glue("data/ch/cases/COVID19_Fallzahlen_Kanton_{canton}_total.csv")
 
 cases_data <- read_csv(data_file, col_types = cols()) %>% 
@@ -87,7 +88,7 @@ cases_data <- read_csv(data_file, col_types = cols()) %>%
          delta_ID = delta_hosp + discharged)
 
 data <- select(cases_data, 
-               date, cases, deaths, cum_deaths, hosp_curr, discharged, delta_hosp, delta_ID) %>% 
+              date, cases, deaths, cum_deaths, hosp_curr, discharged, delta_hosp, delta_ID) %>% 
   mutate(hosp_incid = NA)
 
 # Set start date 
@@ -160,13 +161,17 @@ state_names <- mapply(
     "a_I", "a_H", "a_U", "a_D", "a_DH", "a_DI", "a_DU", "a_O", "a_deltaH",
     "Rt", "tot_I") # prefix a_ represent accumulator variables for incidences
 
+# define parameter names for pomp
+## process model parameters names to estimate
+#param_proc_est_names <- c("std_X", "k", "epsilon")
+
 ## initial value parameters to estimate
 param_iv_est_names <- c("I_0", "R0_0")
 
 ## fixed process model parameters 
 rate_names <- c("e2i", "l2i", "id2o", "i2h", "i2o", "hs2r", "hd2d", "h2u", "us2r", "ud2d")
 prob_names <- c("psevere", "pi2d", "pi2h", "pi2hs", "ph2u", "pu2d")
-
+#param_proc_fixed_names <- c("pop", rate_names, prob_names,  "alpha", "std_W")
 # define parameter names for pomp
 ## process model parameters names to estimate
 if (ll_cases) {
@@ -359,7 +364,7 @@ proc.Csnippet <- Csnippet("
                           a_DU += dN[20];
                           a_D  = a_DH + a_DI + a_DU;
                           a_O  += dN[12] + dN[18]; // discharged from hospital
-                          a_deltaH = a_H - a_DH - a_DU - a_O;
+                          a_deltaH = a_H - a_DH - a_DU;
                           // Current
                           U_curr = U_s1 + U_s2 + U_d1 + U_d2;
                           H_curr = H_s1 + H_s2 + H + H_d1 + H_d2 + U_s1 + U_s2 + U_d1 + U_d2;
@@ -369,7 +374,9 @@ proc.Csnippet <- Csnippet("
                           // random walk of beta
                           dWX = rnorm(0, sqrt(dt));
                           X  +=  std_X * dWX;  // 
-
+                          
+                          
+                          
                           // susceptibles so as to match total population
                           N = pop - D - H_curr - U_curr;
                           Rt = exp(X) / (i2o); 
@@ -581,6 +588,8 @@ t2 <- system.time({
 write_csv(liks, path = ll_filename, append = file.exists(ll_filename))
 
 cat("----- Done LL, took", round(t2["elapsed"]/60), "mins \n")
+
+
 # Filter --------------------------------------------------------------------
 
 best_params <- liks %>%
@@ -589,29 +598,30 @@ best_params <- liks %>%
   slice(1:3)
 
 t3 <- system.time({
-  filter_dists <- foreach(pari = iter(best_params, "row"),
-                          pit = icount(nrow(best_params)),
-                          .packages = c("pomp", "tidyverse", "foreach", "magrittr"),
-                          .combine = rbind,
-                          .noexport = c("par")) %do% {
-                            foreach(it = icount(n_filter),
-                                    .combine = rbind,
-                                    .packages = c("pomp", "tidyverse", "foreach", "magrittr")
-                            ) %dopar% {
-                              
-                              pf <- pfilter(covid, params = as.vector(pari), Np = 3e3, filter.traj = T)
-                              traj <- filter.traj(pf) %>% 
-                                as.data.frame() 
-                              
-                              t(traj) %>%
-                                as_tibble() %>% 
-                                mutate(time = as.numeric(str_replace(colnames(traj), "1.", ""))) %>% 
-                                gather(var, value, -time) %>% 
-                                mutate(it = it,
-                                       parset = pit)
-                            }
+filter_dists <- foreach(pari = iter(best_params, "row"),
+                        pit = icount(nrow(best_params)),
+                        .packages = c("pomp", "tidyverse", "foreach", "magrittr"),
+                        .combine = rbind,
+                        .noexport = c("par")) %do% {
+                          foreach(it = icount(n_filter),
+                                  .combine = rbind,
+                                  .packages = c("pomp", "tidyverse", "foreach", "magrittr")
+                          ) %dopar% {
+                            
+                            pf <- pfilter(covid, params = as.vector(pari), Np = 3e3, filter.traj = T)
+                            traj <- filter.traj(pf) %>% 
+                              as.data.frame() 
+                            
+                            t(traj) %>%
+                              as_tibble() %>% 
+                              mutate(time = as.numeric(str_replace(colnames(traj), "1.", ""))) %>% 
+                              gather(var, value, -time) %>% 
+                              mutate(it = it,
+                                     parset = pit)
                           }
-                        })
+                        }
+})
+
 
 saveRDS(filter_dists %>% mutate(ShortName = canton), file = filter_filename)
 

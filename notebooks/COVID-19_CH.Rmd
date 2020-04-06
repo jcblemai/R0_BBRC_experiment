@@ -30,40 +30,75 @@ library(lubridate)
 library(sf)
 library(glue)
 select <- dplyr::select
-source("COVID-pomp/scripts/graph_utils.R")
 ```
 
 ```{r load data}
+source("COVID-pomp/scripts/graph_utils.R")
 # Load data that has been produced
 geodata <- read.csv("data/ch/geodata.csv")
+
 files_filter <- list.files(path = "COVID-pomp/results/", pattern = "filtered_*")
 cantons <- lapply(files_filter, function(s) unlist(strsplit(s, '_'))[3])
-col_id <- 'ShortName'
+
 country <- st_read("data/ch/shp/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp")
 
 for (i in seq(nrow(country))) {
-  country$ShortName[i] <- lapply(geodata[col_id][geodata$CantonNumber == country$KANTONSNUM[i],], as.character) # TODO hardcoded
+  country$ShortName[i] <- lapply(geodata['ShortName'][geodata$CantonNumber == country$KANTONSNUM[i],], as.character) # TODO hardcoded
 }
 
-for (ctn in cantons) {
-  print(str_c('Loading...', ctn))
-  ffilter <- list.files(path = "COVID-pomp/results/", pattern = glue("filtered_covid_{ctn}_*"))
-  load(glue("COVID-pomp/results/{ffilter}"))
-}
-```
-
-
-```{r show map}
 ffilter <- list.files(path = "COVID-pomp/results/", pattern = glue("filtered_covid_*"), full.names = TRUE)
 
-data <- ffilter %>%
+sims <- ffilter %>%
   map(readRDS) %>%    # read in all the files individually, using
-  reduce(rbind)        # reduce with rbind into one dataframe
-data
+  reduce(rbind)   
+
+fdata <- list.files(path = "data/ch/cases/", pattern = glue("COVID19_Fallzahlen_Kanton_*"), full.names = TRUE)
+data <- fdata %>%
+  map(read_csv) %>%    # read in all the files individually, using
+  reduce(bind_rows) %>% rename(ShortName = abbreviation_canton_and_fl)
+```
+
+
+```{r plot comp}
+states_to_plot <- c("tot_I", "Rt", "D")
+filterstats <- compute_filterstats(sims)
+```
+
+
+```{r cases data}
+fdata <- list.files(path = "data/ch/cases/", pattern = glue("COVID19_Fallzahlen_Kanton_*"), full.names = TRUE)
+data <- fdata %>%
+  map(read_csv) %>%    # read in all the files individually, using
+  reduce(bind_rows) %>% 
+  rename(ShortName = abbreviation_canton_and_fl)%>%
+  select(-source, -ncumul_confirmed_non_resident, -ninst_hosp_non_resident, -ncumul_ICF,
+         -ninst_ICU_intub, -ncumul_deceased_suspect, -TotalPosTests1, -TotalCured)
+
+data <- data %>% arrange(date) %>% group_by(ShortName) %>%
+  mutate(cases = c(NA, diff(ncumul_conf)),
+         deaths = c(NA, diff(ncumul_deceased)),
+         cum_deaths = ncumul_deceased,
+         hosp_curr = ncumul_hosp,
+         discharged = c(ncumul_released[1], diff(ncumul_released)),
+         delta_hosp = c(hosp_curr[1], diff(hosp_curr)),
+         delta_ID = delta_hosp + discharged) %>%
+  select(date, cases, deaths, cum_deaths, hosp_curr, discharged, delta_hosp, delta_ID) %>% 
+  mutate(hosp_incid = NA)  %>%
+  ungroup()
 ```
 
 
 ```{r show map}
-country_R0 <-  inner_join(country, final_dat_unc_Sept, by=col_id)
+plot_states(filterstats, data, "Rt")
+```
+```{r }
+for (ctn in cantons){
+  print(plot_cnt_all(filterstats, data, ctn))
+}
 ```
 
+
+```{r }
+#a<- filterstats %>% filter(var == 'Rt') %>% group_by(ShortName) %>% arrange(time, .by_group = TRUE) %>%  mutate(pct_change = (mean/lead(mean) - 1) * 100) %>% ungroup()
+#map <- inner_join(country, a %>% pivot_wider(pct_change, ), by="ShortName")
+```
