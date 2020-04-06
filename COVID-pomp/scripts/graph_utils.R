@@ -47,34 +47,41 @@ make_map_plot <- function(country_data){
   return(p)
 }
 
-# singleR0Reduction <- function(value, dates, dt_left, dt_right) {
-#   r0_left <- value[dates < min(dates) + dt_left & !is.na(value)]
-#   r0_right <- value[dates > max(dates) - dt_right]
-#   return(mean(r0_right)/mean(r0_left)) 
-# } 
-
 singleR0value <- function(value, dates, date_left, date_right) {
   r0 <- value[dates >= date_left & dates <= date_right & !is.na(value)]
   return(mean(r0))
 } 
 
-computeR0Reduction <- function(filter_data, dt_left, dt_right) {
+computeTimeToOne <- function(value, dates, date_start) {
+  t1 <- which(value <= 1 & dates >= date_start)[1]
+  if (is.na(t1)) {
+    t21 <- NA
+  } else {
+    t21 <- as.numeric(difftime(dates[t1], date_start, units = "days"))
+  }
+  return(t21)
+}
+
+computeR0Reduction <- function(filter_data, tw_left, tw_right, date_start) {
   filter_data %>% 
     mutate(date = yearsToDate(time)) %>% 
     group_by(ShortName, it, ll_comp) %>% 
-    summarise(r0_right = singleR0value(value, date, max(date) - dt_right, max(date)),
-              r0_left = singleR0value(value, date, min(date), min(date) + dt_left),
-              r0change = r0_right/r0_left) %>%
+    summarise(r0_right = singleR0value(value, date, tw_right[1], tw_right[2]),
+              r0_left = singleR0value(value, date, tw_left[1], tw_left[2]),
+              r0change = r0_right/r0_left,
+              t1 = computeTimeToOne(value, date, date_start)) %>%
+    group_by(ShortName, ll_comp) %>%
+    mutate(t1frac = sum(!is.na(t1))/n()) %>% 
     ungroup() %>% 
     gather(var, value, -ShortName, -it, -ll_comp) %>% 
     group_by(ShortName, var, ll_comp) %>% 
     summarise(
-      mean = mean(value),
-      median = median(value),
-      q025 = quantile(value, 0.025),
-      q975 = quantile(value, 0.975),
-      q25 = quantile(value, 0.25),
-      q75 = quantile(value, 0.75)
+      mean = mean(value, na.rm = T),
+      median = median(value, na.rm = T),
+      q025 = quantile(value, 0.025, na.rm = T),
+      q975 = quantile(value, 0.975, na.rm = T),
+      q25 = quantile(value, 0.25, na.rm = T),
+      q75 = quantile(value, 0.75, na.rm = T)
     )
 }
 
@@ -95,7 +102,8 @@ computeFilterStats <- function(filter_data) {
 }
 
 
-plot_states <- function(filterstats, states_to_plot, cantons = NULL, scales = "fixed") {
+plot_states <- function(filterstats, states_to_plot, cantons = NULL,
+                        scales = "fixed", fancol = 4) {
   
   if (is.null(cantons)) {
     cantons <- unique(filterstats$ShortName)
@@ -104,10 +112,10 @@ plot_states <- function(filterstats, states_to_plot, cantons = NULL, scales = "f
   p <- filterstats %>% 
     filter(var %in% states_to_plot, ShortName %in% cantons) %>% 
     ggplot(aes(x = date)) +
-    geom_ribbon(aes(ymin = q025, ymax = q975, fill = ll_comp), alpha = .2) +
-    geom_ribbon(aes(ymin = q25, ymax = q75, fill = ll_comp), alpha = .2) +
+    geom_ribbon(aes(ymin = q025, ymax = q975), alpha = .2) +
+    geom_ribbon(aes(ymin = q25, ymax = q75), alpha = .2) +
     theme_bw() +
-    scale_fill_manual(values = c("#F7A62D", "#9D5EE0")) +
+    # scale_fill_manual(values = c("#F7A62D", "#9D5EE0")) +
     labs(x = "", y = "Reproduction number") +
     guides(fill = guide_legend(title = "Data used"))
   
@@ -115,11 +123,11 @@ plot_states <- function(filterstats, states_to_plot, cantons = NULL, scales = "f
     if (states_to_plot == "Rt") {
       p <- p + geom_hline(aes(yintercept = 1), lty = 2, size = .3)
     }
-    p <- p + facet_wrap(. ~ ShortName, scales = scales)
+    p <- p + facet_wrap(. ~ ShortName, scales = scales, ncol = fancol)
   } else if (length(states_to_plot) > 1 & length(cantons) > 1) {
     p <- p + facet_grid(var ~ ShortName, scales = scales)
   } else if (length(states_to_plot) >1 & length(cantons) == 1) {
-    p <- p + facet_wrap(. ~ var, scales = scales)
+    p <- p + facet_wrap(. ~ var, scales = scales, ncol = fancol)
   }
   return(p)
 }
@@ -170,4 +178,33 @@ plot_cnt_all <- function(filterstats, data, states_to_plot, cantons = NULL) {
     theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
   
   return(p)
+}
+
+roundValues <- function(x) {
+  om <- 10^min(c(-1, round(log10(x))-1))
+  format(round(x/om)*om, big.mark=",")
+} 
+
+
+formatTableContent <- function(df, col_order) {
+  df %>% 
+    mutate(median = map_chr(median, roundValues), 
+           ci = str_c("(", map(q025, roundValues), "-", map(q975, roundValues), ")")) %>% 
+    select(-contains("q"), -mean) %>% 
+    pivot_wider(names_from = c("var"),
+                values_from = c("median", "ci")) %>% 
+    select(ShortName, one_of(col_order))
+}
+
+# Function to print results table
+printTable <- function(df, tabnum = 1, col_headers, col_order) {
+  formatTableContent(df, col_order) %>% 
+    kable(booktabs = T,
+          full_width = T,
+          align = "c",
+          col.names = c("", rep(c("median", "95% CI"), 2))) %>%
+    add_header_above(col_headers)   %>%
+    kable_styling(latex_options = c("striped", "hold_position"),
+                  full_width = F)
+  
 }
