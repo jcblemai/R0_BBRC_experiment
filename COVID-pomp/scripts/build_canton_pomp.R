@@ -18,7 +18,7 @@ option_list = list(
   optparse::make_option(c("-c", "--config"), action="store", default='config.yaml', type='character', help="path to the config file"),
   optparse::make_option(c("-j", "--jobs"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-r", "--run_level"), action="store", default=1, type='numeric', help="run level for MIF"),
-  optparse::make_option(c("-p", "--place"), action="store", default='BE', type='character', help="name of place to be run, a Canton abbrv. in CH"),
+  optparse::make_option(c("-p", "--place"), action="store", default='TI', type='character', help="name of place to be run, a Canton abbrv. in CH"),
   optparse::make_option(c("-l", "--likelyhood"), action="store", default='c-d-deltah', type='character', help="likelyhood to be used for filtering")
 )
 opt = optparse::parse_args(optparse::OptionParser(option_list=option_list))
@@ -62,6 +62,7 @@ data <- select(cases_data,
 start_date <- with(data, 
                    min(c(date[which(!is.na(cases))[1]] - 5, 
                          date[which(!is.na(hosp_curr))[1]] - 8)))#as.Date("2020-02-20")
+start_date <- cases_data$date[1] - 5
 
 end_date <- as.Date("2020-04-08")
 
