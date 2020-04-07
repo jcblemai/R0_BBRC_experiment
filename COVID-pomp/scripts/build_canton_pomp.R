@@ -63,7 +63,7 @@ start_date <- with(data,
                    min(c(date[which(!is.na(cases))[1]] - 5, 
                          date[which(!is.na(hosp_curr))[1]] - 8)))#as.Date("2020-02-20")
 
-end_date <- as.Date("2020-05-31")
+end_date <- as.Date("2020-04-08")
 
 # Add rows
 data <- rbind(tibble(date = seq.Date(start_date, min(data$date), by = "1 days")) %>% 
