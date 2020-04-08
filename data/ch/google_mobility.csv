@@ -1,0 +1,28 @@
+region,subregion,updated_at,retail_and_recreation,grocery_and_pharmacy,parks,transit_stations,workplaces,residential,retail_and_recreation_not_enough_data,grocery_and_pharmacy_not_enough_data,parks_not_enough_data,transit_stations_not_enough_data,workplaces_not_enough_data,residential_not_enough_data
+Switzerland,NA,2020-03-29,-0.81,-0.51,-0.41,-0.68,-0.46,0.15,NA,NA,NA,NA,NA,NA
+Switzerland,Aargau,2020-03-29,-0.75,-0.35,-0.14,-0.56,-0.41,0.13,NA,NA,NA,NA,NA,NA
+Switzerland,Appenzell Ausserrhoden,2020-03-29,-0.77,0.03,NA,-0.6,-0.29,NA,NA,TRUE,TRUE,NA,TRUE,TRUE
+Switzerland,Appenzell Innerrhoden,2020-03-29,-0.57,NA,NA,NA,-0.29,NA,TRUE,TRUE,TRUE,TRUE,TRUE,TRUE
+Switzerland,Basel City,2020-03-29,-0.89,-0.41,-0.65,-0.76,-0.48,0.25,NA,NA,NA,NA,NA,TRUE
+Switzerland,Basel-Landschaft,2020-03-29,-0.77,-0.21,-0.25,-0.61,-0.4,0.23,NA,NA,TRUE,NA,NA,TRUE
+Switzerland,Canton of Bern,2020-03-29,-0.8,-0.53,-0.36,-0.68,-0.43,0.14,NA,NA,NA,NA,NA,NA
+Switzerland,Canton of Zug,2020-03-29,-0.75,-0.02,NA,-0.67,-0.45,0.27,NA,TRUE,TRUE,NA,NA,TRUE
+Switzerland,Fribourg,2020-03-29,-0.82,-0.44,-0.41,-0.62,-0.42,0.2,NA,NA,NA,NA,NA,NA
+Switzerland,Geneva,2020-03-29,-0.82,-0.6,-0.4,-0.84,-0.54,0.21,NA,NA,NA,NA,NA,NA
+Switzerland,Glarus,2020-03-29,-0.92,-0.19,NA,-0.48,-0.33,NA,NA,TRUE,TRUE,NA,TRUE,TRUE
+Switzerland,Grisons,2020-03-29,-0.89,-0.78,-0.59,-0.78,-0.57,0.2,NA,NA,NA,NA,NA,TRUE
+Switzerland,Jura,2020-03-29,-0.91,-0.32,NA,-0.64,-0.43,0.14,NA,TRUE,TRUE,NA,NA,TRUE
+Switzerland,Lucerne,2020-03-29,-0.82,-0.38,-0.5,-0.66,-0.4,0.16,NA,NA,NA,NA,NA,NA
+Switzerland,Neuchâtel,2020-03-29,-0.78,-0.48,-0.18,-0.58,-0.46,0.28,NA,TRUE,TRUE,NA,NA,TRUE
+Switzerland,Nidwalden,2020-03-29,-0.74,-0.02,-0.73,-0.78,-0.46,NA,TRUE,TRUE,TRUE,NA,TRUE,TRUE
+Switzerland,Obwalden,2020-03-29,-0.63,-0.16,-0.49,-0.79,-0.4,NA,NA,TRUE,TRUE,NA,TRUE,TRUE
+Switzerland,Schaffhausen,2020-03-29,-0.9,-0.5,NA,-0.61,-0.41,0.02,NA,TRUE,TRUE,NA,TRUE,TRUE
+Switzerland,Schwyz,2020-03-29,-0.72,-0.55,-0.45,-0.66,-0.44,0.23,NA,NA,TRUE,NA,NA,TRUE
+Switzerland,Solothurn,2020-03-29,-0.77,-0.35,-0.13,-0.63,-0.38,0.15,NA,NA,TRUE,NA,NA,TRUE
+Switzerland,St. Gallen,2020-03-29,-0.8,-0.44,-0.29,-0.58,-0.42,0.14,NA,NA,NA,NA,NA,NA
+Switzerland,Thurgau,2020-03-29,-0.79,-0.3,-0.44,-0.61,-0.4,0.15,NA,TRUE,TRUE,NA,NA,TRUE
+Switzerland,Ticino,2020-03-29,-0.85,-0.69,-0.51,-0.64,-0.49,0.21,NA,NA,NA,NA,NA,NA
+Switzerland,Uri,2020-03-29,-0.89,-0.13,NA,-0.78,-0.44,NA,NA,TRUE,TRUE,NA,TRUE,TRUE
+Switzerland,Valais,2020-03-29,-0.87,-0.67,-0.61,-0.75,-0.57,0.17,NA,NA,NA,NA,NA,NA
+Switzerland,Vaud,2020-03-29,-0.79,-0.49,-0.42,-0.68,-0.5,0.17,NA,NA,NA,NA,NA,NA
+Switzerland,Zurich,2020-03-29,-0.82,-0.44,-0.53,-0.73,-0.47,0.16,NA,NA,NA,NA,NA,NA
