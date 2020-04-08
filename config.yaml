@@ -1,3 +1,0 @@
-name: COVID_CH
-setup: data/ch/geodata.csv
-parameters: COVID-pomp/data/parameters.yaml
