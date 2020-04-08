@@ -90,6 +90,7 @@ computeFilterStats <- function(filter_data) {
   filter_stats <- filter_data %>% 
     group_by(time, parset, var, ShortName, ll_comp) %>% 
     summarise(mean = mean(value, na.rm = T),
+              median = median(value, na.rm = T),
               q025 = quantile(value, 0.025, na.rm = T),
               q975 = quantile(value, 0.975, na.rm = T),
               q25 = quantile(value, 0.25, na.rm = T),
@@ -103,7 +104,8 @@ computeFilterStats <- function(filter_data) {
 
 
 plot_states <- function(filterstats, states_to_plot, cantons = NULL,
-                        scales = "fixed", fancol = 4) {
+                        scales = "fixed", fancol = 4,
+                        ylabel) {
   
   if (is.null(cantons)) {
     cantons <- unique(filterstats$ShortName)
@@ -116,7 +118,7 @@ plot_states <- function(filterstats, states_to_plot, cantons = NULL,
     geom_ribbon(aes(ymin = q25, ymax = q75), alpha = .2) +
     theme_bw() +
     # scale_fill_manual(values = c("#F7A62D", "#9D5EE0")) +
-    labs(x = "", y = "Reproduction number") +
+    labs(x = "", y = "") +
     guides(fill = guide_legend(title = "Data used"))
   
   if (length(states_to_plot) == 1 & length(cantons) > 1) {
@@ -133,14 +135,14 @@ plot_states <- function(filterstats, states_to_plot, cantons = NULL,
 }
 
 
-plot_cnt_all <- function(filterstats, data, states_to_plot, cantons = NULL) {
+plot_cnt_all <- function(filterstats, data, states_to_plot, cantons = NULL, ylabel) {
   
   if (is.null(cantons)) {
     cantons <- unique(data$ShortName)
   }
   
   # Base plot
-  p <- plot_states(filterstats, states_to_plot, cantons = cantons, scales = "free_y")
+  p <- plot_states(filterstats, states_to_plot, cantons = cantons, scales = "free_y", ylabel)
   
   data_names <- c(a_I = "cases",
                   tot_I = "ncumul_conf",

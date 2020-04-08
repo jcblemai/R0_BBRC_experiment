@@ -18,10 +18,10 @@ library(glue)
 ```{r load results}
 source("../COVID-pomp/scripts/graph_utils.R")
 
-ll_to_use <- "c-d-deltah"
+ll_to_use <- "d-c-deltah"
 #  Time windows
 load("../COVID-pomp/results/computation_time_windows.rda")  
-cantons_to_analyze <- c("AG", "BE", "FR", "GE", "NE", "VD", "VS", "ZH")
+cantons_to_analyze <- c("BE", "BL", "BS", "FR", "GE", "GR", "JU", "LU", "NE", "TI", "VD", "VS", "ZH")
 
 filterstats <- readRDS("../COVID-pomp/results/filtered_states_all.rds") %>%
   filter(ll_comp == ll_to_use)
@@ -56,8 +56,8 @@ This report presents results on the estimation of changes of the *basic reproduc
 
 ## $R_0$
 ### Time-varying estimates of $R_0$
-```{r Rt, fig.cap="**Figure 1. Time-varying estimates of the basice reproduction number $R_0$**.", fig.width=9, fig.height=4}
-plot_states(filterstats, "Rt", cantons = cantons_to_analyze)
+```{r Rt, fig.cap="**Figure 1. Time-varying estimates of the basice reproduction number $R_0$**.", fig.width=8, fig.height=7}
+plot_states(filterstats, "Rt", cantons = cantons_to_analyze, fancol = 4, ylabel = "Reproduction number")
 ```
 
 ```{r reduction, fig.cap=paste("**Figure 2. Percent change of $R_0$**. Relative change was computed based on the mean value of $R_0$ in the time windows",  paste(format(tw_left, "%B %d"), collapse = "-"), "and",  paste(format(tw_right, "%B %d"), collapse = "-"), "of simulations. Lines give the 95% simulation envelope, thick line the IQR and points the medians."), fig.width=5, fig.height=4}
@@ -96,14 +96,89 @@ r0_reduction %>%
   theme_bw()
 ```
 
+
+## Associations with activity changes
+
+We contrast the estimated changes in $R_0$ with changes in activity-related mobility produced by [Google](https://www.google.com/covid19/mobility/), parsed and made available [here](https://github.com/vitorbaptista/google-covid19-mobility-reports). Changes in activity are expressed as relative changes with respect to a baseline computed as the median over a 5-week period Jan 3–Feb 6, 2020.
+
+Results shown bellow suggests a strong association between $R_0$ and reduction in mobility to transit stations, followed by gorcery and workplace.
+
+```{r covar, fig.height=6, fig.width=8, fig.cap="**Figure 4. Association between changes in activity-related mobility and $R_0$.** Changes are given in terms of reductions, therfore negative numbers indicate increases in activity."}
+gdata <- read_csv("../data/ch/google_mobility.csv")
+
+cantons_dict <- tribble(
+  ~name, ~ShortName,
+  "Fribourg", "FR",
+  "Aargau", "AG",
+  "Geneva", "GE",
+  "Canton of Bern", "BE",
+  "Vaud", "VD",
+  "Valais", "VS",
+  "Neuchâtel", "NE",
+  "Zurich", "ZH", 
+  "Jura" , "JU",
+  # "Ticino", "TI",
+  "Basel-Landschaft", "BL",
+  # "Lucerne", "LU",
+  # "Basel City", "BS",
+  "Grisons", "GR")
+
+gdata <- gdata %>% 
+  select(-contains("not_enough")) %>% 
+  left_join(cantons_dict, by = c("subregion" = "name")) %>% 
+  select(-region, -subregion, -updated_at) %>% 
+  gather(var, value, -ShortName)
+
+covar_data <- r0_reduction %>% 
+  filter(var == "r0change") %>% 
+  ungroup() %>% 
+  select(-var) %>% 
+  mutate(r0change = 1-mean) %>% 
+  inner_join(gdata, by = "ShortName")
+
+covar_sign <- lapply(unique(covar_data$var),
+                     function(x) {
+                       fit <-lm(r0change ~ I(-value), data = filter(covar_data, var == x)) %>% 
+                         summary() 
+                       
+                         data.frame(coef = fit$coefficients[2, 1],
+                                    pval = fit$coefficients[2, 4],
+                                    rsqrd = fit$adj.r.squared) %>% 
+                         mutate(var = x)
+                     }) %>% 
+  bind_rows()# %>% 
+  # mutate(label = str_c("slople=", format(coef, digits = 2), "\n(p-val ", formatC(pval, format = "e", digits = 1), ", R^2 ", format(rsqrd, digits = 2), ")")) 
+  
+p_covar <- covar_data %>% 
+  ggplot(aes(x = -value * 100, y = r0change * 100)) + 
+  geom_smooth(method = lm, alpha = .3) +
+  geom_label(aes(label = ShortName), alpha = .6) +
+  # geom_abline(aes(intercept =0, slope =1)) +
+  facet_wrap(~var, scales = "free_x") +
+  labs(x = "Percent reduction in activity", y = "Mean percent reduction in R0") +
+  theme_bw() 
+
+p_covar
+```
+```{r}
+covar_sign %>% 
+  kable(booktabs = T,
+        digits = 2,
+        caption = "Table 1. Linear regression results."#,
+        # col.names = c("", "mean (logscale)", "sd (logscale)")
+  ) %>% 
+  kable_styling(latex_options = c("striped", "hold_position"),
+                full_width = F)
+  
+```
+
 ## Additional results
 
 ### Model fit to data
 ```{r fits, fig.cap="**Figure 2. Model fit to data**. Note that the discrepancy betwen the reported and simulated number of infections is due to under-reporting, which we estimate as part of the modelling procedure.", fig.width=10, fig.height=6}
 states_to_plot <- c("tot_I", "D", "H_curr", "U_curr")
-plot_cnt_all(filterstats, data, states_to_plot, cantons_to_analyze)
+plot_cnt_all(filterstats = filterstats, data= data,states_to_plot =  states_to_plot, cantons_to_analyze, ylabel = " ")
 ```
-
 
 ### Values of $R_0$
 
@@ -115,7 +190,7 @@ col_headers <- c(" " = 1, " " = 2, " " = 2) %>%
     c(" ",  
       paste(format(tw_left, "%B %d"), collapse = "-"), 
       paste(format(tw_right, "%B %d"), collapse = "-"))
-    )
+  )
 
 r0_reduction %>% 
   ungroup() %>% 
@@ -191,7 +266,7 @@ The number of compartments in each stage of the disease is determined by fitting
 ```
 
 ### Parameters
-We estimate four paramaters to available cantonal level data (Table 1). The main parameter of interest is the basic reproduction number $R_0$. We here allow the value of the paramter to change in time to capture behavioral changes following the successive application of non-pharmasutical interventions (NPIs) by the cantonal and federal governments between March 1st and March 20th. The duration in the infectious state was derived from an assumed generation time of 5.2 days (Ghani et al. 2020), and a latent duration of 4.2 days (i.e. 1 day of infectious but non-symptomatique interval), thus yielding $1/\gamma = 2(5.2 - 4.2) = 2days$.
+We estimate four parameters to available cantonal level data (Table 1). The main parameter of interest is the basic reproduction number $R_0$. We here allow the value of the parameter to change in time to capture behavioral changes following the successive application of non-pharmaceutical interventions (NPIs) by the cantonal and federal governments between March 1st and March 20th. The duration in the infectious state was derived from an assumed generation time of 5.2 days (Ghani et al. 2020), and a latent duration of 4.2 days (i.e. 1 day of infectious but non-symptomatic interval), thus yielding $1/\gamma = 2(5.2 - 4.2) = 2days$.
 
 ```{r params, echo=FALSE, message=FALSE, warning=FALSE}
 library(yaml)
