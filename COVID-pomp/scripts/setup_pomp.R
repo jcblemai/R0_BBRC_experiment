@@ -7,12 +7,13 @@ library(foreach)
 library(iterators)
 source("COVID-pomp/scripts/utils.R")
 
+select <- dplyr::select
 # Load hospitalization data ----------------------------------------------------
 # Date to replace on the right bound
-right_date <- as.Date("2020-03-31")
+right_date <- as.Date("2020-04-08")
 
 # Hospital data
-hosp_data <- read_csv("../COVID-19_CHVaud/analysis_CH/data/VD/hospitalization_data.csv") %>% 
+hosp_data <- read_csv("data/vd/hospitalization_data_full_20200408.csv") %>% 
   mutate_at(c("date_in", "date_out", "icu_in", "icu_out"), 
             function(x) as.Date(x, format = "%m/%d/%Y")) %>%  
   filter(date_in > "2020-02-28") %>% 

@@ -1,0 +1,409 @@
+---
+title: "Hospitalizations in VD"
+author: ''
+date: '08-04-2020'
+output:
+  html_document: 
+    toc: true
+    toc_float: true
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, message=F, warning = F)
+
+library(tidyverse)
+library(magrittr)
+library(gridExtra)
+library(knitr)
+library(kableExtra)
+source("../scripts/hosp_utils.R")
+
+```
+
+```{r load data, echo=FALSE, message=FALSE}
+# Date to replace on the right bound
+right_date <- as.Date("2020-04-08")
+
+# Hospital data
+hosp_data <- read_csv("../data/vd/hospitalization_data_full_20200408.csv") %>% 
+  mutate_at(c("date_in", "date_out", "icu_in", "icu_out"), 
+            function(x) as.Date(x, format = "%m/%d/%Y")) %>%  
+  filter(date_in > "2020-02-28") %>% 
+  mutate(deceased = as.logical(deceased),
+         outcome = case_when(deceased ~ "deceased",
+                             !is.na(date_out) ~ "discharged",
+                             T ~ "hospitalized"), 
+         date_out = case_when(is.na(date_out) ~ right_date,
+                              T ~ date_out),
+         time_hosp = difftime(date_out, date_in, units = "days"),
+         icu_state = case_when(!is.na(icu_in) & !is.na(icu_out) ~ "discharged from ICU",
+                               !is.na(icu_in) & is.na(icu_out) ~ "in ICU",
+                               T ~ ""),
+         icu_out = case_when(!is.na(icu_in) & is.na(icu_out) ~ right_date,
+                             !is.na(icu_out) ~ icu_out),
+         time_icu = difftime(icu_out, icu_in, units = "days"),
+         time_to_death = difftime(date_out, date_in, units = "days"),
+         time_to_icu= difftime(icu_in, date_in, units = "days"),
+         time_icu_to_death = difftime(date_out, icu_in, units = "days")) %>% 
+  mutate_at(vars(contains("time_")), as.numeric)
+
+# Cantonal data
+cantonal_data <- read_csv("../data/ch/cases/COVID19_Fallzahlen_Kanton_VD_total.csv") %>% 
+  mutate(cases_incidence =  c(ncumul_conf[1], diff(ncumul_conf)),
+         deaths_incidence = c(ncumul_deceased[1], diff(ncumul_deceased)),
+         cases_cumul = ncumul_conf,
+         deaths_cumul = ncumul_deceased,
+  ) %>% 
+  dplyr::select(date, cases_incidence, cases_incidence, cases_cumul, deaths_cumul) %>% 
+  mutate_at(vars(-date), function(x) {x[is.na(x)] <- 0 ; x})
+
+n_cases <- max(cantonal_data$cases_cumul)
+
+
+# Observed time from hospitalization to death
+obs_h2d <- as.numeric(hosp_data$time_to_death[hosp_data$outcome == "deceased"])
+obs_h2d <- obs_h2d[obs_h2d > 0]
+
+# Observed time from symptoms onset to death from Wuhan data
+obs_t2d <- read_csv("../data/time_to_death_wuhan.csv")$value
+```
+
+```{r cfr}
+# Crude estimates (biased)
+computeCFRBiased <- function(cumul_cases, cumul_deaths, n_lag) {
+  cumul_deaths/lag(cumul_cases, n_lag)
+}
+convolveManual <- function(x, y) {
+  res <- rep(0, length(x))
+  for (i in 1:length(x)) {
+    for (j in 1:i) {
+      res[i] <- res[i] + x[j] * y[i - j + 1]
+    }
+  }
+  res
+}
+
+# Adjusted estimates following Nishiura et al. 2009
+computeU <- function(C_t, f_t2d) {
+  n_elem_C <- length(C_t)
+  convolveManual(C_t, f_t2d)/C_t
+}
+
+profileLik <- function(ps, uC, D) {
+  liks <- lapply(ps, function(p) {
+    dbinom(D, ceiling(uC), p, log = T)
+  }) %>% 
+    unlist()
+  
+  rliks <- 2 * (max(liks) - liks)
+  chilim <- qchisq(0.95, 1)
+  lb <- which(rliks < chilim)[1]
+  mle_i <- which.max(liks)[1]
+  ub <- which(rliks[mle_i:length(ps)] > chilim)[1] + mle_i - 1
+  q025 <- ps[lb]
+  q975 <- ps[ub]
+  data.frame(mle = ps[mle_i], q025 = q025, q975 = q975)
+}
+
+computeCCFR <- function(t2d, C_t, D_t, dates, distr) {
+  
+  f_t2d_params <- fitdistrplus::fitdist(t2d, distr = distr)$estimate
+  if (distr == "lnorm") {
+    f_t2d <- dlnorm(seq(1, 40), f_t2d_params[1], f_t2d_params[2])
+  } else {
+    f_t2d <- dgamma(seq(1, 40), f_t2d_params[1], f_t2d_params[2])
+  }
+  
+  # As defined in Nishiura et al. 2009
+  u_t <- computeU(C_t, f_t2d)
+  uC_t <- u_t * C_t
+  ps <- seq(0, 1, by = 1e-2)
+  ccfrs <- do.call(
+    rbind, 
+    lapply(1:length(u_t), function(i) {profileLik(ps, uC_t[i], D_t[i])})) %>% 
+    mutate(date = dates)
+  return(ccfrs)
+}
+
+# Lag number of days to comute CFRs following Baudi et al. (2020)
+n_lag <- 14
+cantonal_data$cfr <- with(cantonal_data, computeCFRBiased(cases_cumul, deaths_cumul, n_lag))
+ccfrs <- with(filter(cantonal_data, date > "2020-03-10"), computeCCFR(obs_t2d, cases_cumul, deaths_cumul, date, "lnorm"))
+cfr <- left_join(dplyr::select(cantonal_data, date, cfr), ccfrs)
+```
+
+```{r hosp cfr}
+hosp_cumul <-  left_join(
+  hosp_data %>% 
+    group_by(date_in) %>% 
+    summarise(n_hosp = n()) %>% 
+    rename(date = date_in) %>% 
+    arrange(date) %>% 
+    mutate(ncumul_hosp = cumsum(n_hosp)),
+  hosp_data %>% 
+    filter(outcome == "deceased") %>% 
+    group_by(date_out) %>% 
+    summarise(n_deaths = n()) %>% 
+    rename(date = date_out) 
+) %>% 
+  arrange(date) %>% 
+  replace_na(list(n_deaths = 0)) %>% 
+  mutate(ncumul_deaths = cumsum(n_deaths))
+
+hcfr <- with(hosp_cumul, computeCCFR(obs_h2d, ncumul_hosp, ncumul_deaths, date, "gamma"))
+hcfr$cfr <- with(hosp_cumul, computeCFRBiased(ncumul_hosp, ncumul_deaths, mean(obs_h2d)))
+```
+
+This is a short descriptive report on hospitalization at CHUV (VD).
+
+**Key points:**
+
+- `r nrow(hosp_data)` have been hospitalized
+- The mean population-wide CFR in the past week is of `r format(mean(cfr %>% tail(3) %>% .[["mle"]], na.rm = T)*100, digits=2)`%
+- The mean hospitalized CFR in the past 3 days is of `r format(mean(hcfr %>% tail(3) %>% filter(mle>0) %>% .[["mle"]], na.rm = T)*100, digits=2)`%
+- `r format(hosp_data %>% mutate(icu = !is.na(icu_in)) %>% {sum(.$icu/nrow(.))} * 100, digits =2)`% of patients where treated in an ICU
+- The mean hospitalization time is of `r format(mean(hosp_data %>% filter(time_hosp>0) %>% .[["time_hosp"]], na.rm = T), digits =2)` days
+- The mean ICU time is of `r format(mean(hosp_data %>% filter(time_icu>0) %>% .[["time_icu"]], na.rm = T), digits =2)` days
+
+
+**Data:** The data consists of line lists of dates associated to patient arrival, exit, ICU treatment, and outcome.
+
+### Time series of cases and hospitalizations
+
+Since the begging of the first COVID case in Vaud, a total of `r nrow(hosp_data)` people have been hospitalized, out of a total of `r n_cases` reported cases (`r format(nrow(hosp_data)/n_cases*100, digits = 3)` %).
+
+```{r hosp series, fig.height=5, fig.width=7}
+# 
+# cumhosp <- hosp_data %>% 
+#   group_by(date_in) %>% 
+#   summarise(incidence = n()) %>% 
+#   ungroup() %>% 
+#   arrange(date_in) %>% 
+#   rename(date = date_in) %>% 
+#   mutate(cum_incidence = cumsum(incidence))  %>% 
+#   gather(var, value, -date) %>% 
+#   mutate(type = "hospitalizations", location = "CHUV")
+# 
+# cumhospall <- hosp_data2 %>%
+#   select(date, ncumul_hosp) %>%
+#   mutate(incidence = c(ncumul_hosp[1], diff(ncumul_hosp))) %>% 
+#   rename(cum_incidence = ncumul_hosp) %>% 
+#   gather(var, value, -date) %>% 
+#   mutate(type = "hospitalizations", location = "VD",
+#          value = case_when(value < 0 ~ 0, T ~ value))
+# 
+# 
+# incid_dict <- c("cum_incidence" = "Cumulative incidence",
+#                 "incidence" = "incidence")
+# 
+# cumhosp %>% mutate(location = "CHUV") %>% 
+#   rbind(cumhospall) %>% 
+#   rbind(cases %>% mutate(location = "VD")) %>% 
+#   ggplot(aes(x = date, y = value, color = location, lyt = type)) +
+#   geom_line() +
+#   facet_wrap(type~var, scales = "free_y", ncol = 2, labeller = labeller(var = incid_dict)) +
+#   theme_minimal() +
+#   labs(x = "", y = "") +
+#  scale_color_manual(values = c("#00688B", "#EE2C2C"))
+
+```
+
+**Figure. Time series of confirmed cases and hospitalization incidence.** Hospitalization is only for CHUV.
+
+### Case Fatality Ratios
+
+#### Population-level CFRs
+CFRs were calculated following [Baud et al. (2020)](https://doi.org/10.1016/S1473-3099(20)30195-X) by dividing the cumulated number of deaths up to time *t* + 14 days by the cumulated number of cases at time *t*.
+
+We also estimate the CFR by adjusting for the distribution of time from symptom onset to death following [Nishiura et al. (2009)](https://doi.org/10.1371/journal.pone.0006852).
+$$cCFR(t) = \frac{D(t)}{\int_{0}^{t} C(\tau) f(t-\tau) d\tau}$$
+where $D(t)$ and $C(t)$ are the cumulated of deaths at time $t$, and $f(u)$ is the PDF of the time from symptom onset to death. We estimate $f(t)$ with data from [Ruan et al. (2020)](https://link.springer.com/article/10.1007/s00134-020-05991-x?fbclid=IwAR1EbkrPza14Iwx-dNFQDrlYG2HRomm-8Lb7NEvWZIqP1Gff8EBDaLmL7lg) assuming a Gamma distribution.
+
+
+
+
+```{r cfr plot, fig.height=3, fig.width=7}
+ggplot(cfr %>% filter(mle<1), aes(x = date)) +
+  geom_line(aes(y = cfr * 100), lty = 2) +
+  geom_point(aes(y = mle * 100)) +
+  geom_errorbar(aes(ymin = q025 * 100, ymax = q975 * 100), width = 0) +
+  theme_minimal() +
+  labs(x = "", y = "CFR [%]") +
+  ylim(c(0, max(cfr$cfr)))
+```
+
+**Figure. Time series of cantonal CFRs.** Dotted line are the CFRs using the method in  [Baud et al. (2020)](https://doi.org/10.1016/S1473-3099(20)30195-X). Note that using a `r n_lag` days lag, values are available up to `r format(max(cfr$date) - n_lag, "%b %d")`. Points represent unbiased CFR estimates following [Ruan et al. (2020)](https://doi.org/10.1371/journal.pone.0006852) (bars give 95\% CI).
+
+#### Hospital CFRs
+
+We implement the same methodology to compute the hospitalized CFRs from the CHUV data, assuming a log-normal distribution of time from hospitalization to death.
+
+```{r, fig.height=3, fig.width=7}
+ggplot(hcfr %>% 
+         filter(mle<1, mle >0)%>% 
+         mutate(alpha = case_when(mle == 0 | mle == 1 ~ 0 , T ~ 1)), 
+       aes(x = date)) +
+  # geom_line(aes(y = cfr* 100), lty = 2) +
+  geom_point(aes(y = mle * 100, alpha = I(alpha))) +
+  geom_errorbar(aes(ymin = q025 * 100, ymax = q975 * 100, alpha = I(alpha)), width = 0) +
+  theme_minimal() +
+  labs(x = "", y = "Hospitalized CFR [%]")
+```
+
+**Figure. Hospitalized CFRs based on CHUV data.**
+
+### Age distribution
+
+
+```{r hosp ages, fig.height=2.5, fig.width=6}
+hosp_data %>% 
+  mutate(outcome = case_when(outcome == "deceased" ~ outcome, T ~ "other"),
+         outcome = factor(outcome, levels = c("other", "deceased"))) %>% 
+  ggplot(aes(x = age, fill = outcome)) +
+  geom_histogram() +
+  theme_minimal() +
+  ggthemes::scale_fill_few()
+```
+
+**Figure. Distribution of ages of hospitalized patients**
+
+
+### Time distributions
+#### Time hospitalized
+
+```{r hosp time, echo=FALSE, fig.height=2.5, fig.width=6}
+hosp_data %>% 
+  mutate(hosp_state = case_when(outcome == "hospitalized" ~ outcome,
+                                T ~ "discharged or deceased")) %>% 
+  ggplot(aes(x = time_hosp, fill = hosp_state)) +
+  geom_histogram(position = "dodge") +
+  theme_minimal() +
+  ggthemes::scale_fill_few() +
+  labs(x = "Time hospitalized [days]")
+
+```
+
+**Figure. Distribution of time hospitalized**  Mean time hospitalized is `r format(mean(hosp_data$time_hosp), digits = 2)` days (accounting for patient still hospitalized). 
+
+
+```{r fit distr}
+library(fitdistrplus)
+th_dist <- fitDist(hosp_data, "time_hosp", "lnorm")
+th2d_dist <- fitDist(filter(hosp_data, !is.na(time_to_death)), "time_to_death", dist = "lnorm")
+t2icu_dist <- fitDist(filter(hosp_data, icu_state != ""), "time_to_icu", dist = "lnorm")
+ticu_dist <- fitDist(filter(hosp_data, !is.na(time_icu)), "time_icu", dist = "lnorm")
+ticu2d_dist <- fitDist(filter(hosp_data, outcome == "deceased", !is.na(icu_in)), "time_icu_to_death", dist = "lnorm")
+tnoicu2d_dist <- fitDist(filter(hosp_data, outcome == "deceased", is.na(icu_in)), "time_to_death", dist = "lnorm")
+
+th_dens <- generateDenstiy(th_dist)
+th2d_dens <- generateDenstiy(th2d_dist)
+t2icu_dens <- generateDenstiy(t2icu_dist)
+ticu_dens <- generateDenstiy(ticu_dist)
+ticu2d_dens <- generateDenstiy(ticu2d_dist)
+tnoicu2d_dens<- generateDenstiy(tnoicu2d_dist)
+```
+
+
+```{r data histograms, fig.width=8, fig.height=6, fig.cap="**Figure A.2. Time distributions of modelled hospitalization processes.** Bars represent data from alll VD hospitals and lines estimated probability distribution functions as used in the model."}
+# Colors
+th_cols <- c("#9BB9FA", "#F09C9C")
+x_lims <- c(0.5, 30)
+
+# Time hospitalzed
+p_th <- hosp_data %>% 
+  mutate(hosp_state = case_when(outcome == "hospitalized" ~ outcome,
+                                T ~ "discharged or deceased")) %>% 
+  ggplot() +
+  geom_histogram(aes(x = time_hosp, y = ..density.., fill = hosp_state), position = "dodge") +
+  geom_line(data = th_dens, aes(x = x, y = y)) +
+  theme_minimal() +
+  scale_fill_manual(values = th_cols) +
+  labs(x = "Time hospitalized [days]") +
+  theme(legend.position = c(0.75, 0.7),
+        legend.key.size = unit(.5, "cm")) +
+  xlim(x_lims)
+
+# Time to ICU
+p_t2icu <- hosp_data %>% 
+  ggplot() +
+  geom_histogram(aes(x = time_to_icu, y = ..density..), fill = "gray") +
+  geom_line(data = t2icu_dens, aes(x = x, y = y)) +
+  theme_minimal() + 
+  labs(x = "Time from hospitalization to ICU [days]") +
+  xlim(x_lims)
+
+# Time in ICU
+p_tiuc <- hosp_data %>% 
+  filter(icu_state != "") %>% 
+  mutate(agec = case_when(age > 65 ~ "+65", T~ "18-65")) %>% 
+  ggplot() +
+  geom_histogram(aes(x = time_icu, y = ..density.., fill = icu_state), position = "dodge") +
+  geom_line(data = ticu2d_dens, aes(x = x, y = y)) +
+  theme_minimal() +
+  scale_fill_manual(values = th_cols) +
+  # facet_wrap(~agec) +
+  labs(x = "Time in ICU [days]") +
+  theme(legend.position = c(0.75, 0.7),
+        legend.key.size = unit(.5, "cm")) +
+  xlim(x_lims)
+
+
+# Time to death
+p_t2d <- hosp_data %>%
+  filter(deceased) %>% 
+  ggplot() +
+  geom_histogram(aes(x = time_to_death, y = ..density..), fill = "gray") +
+  geom_line(data = th2d_dens, aes(x = x, y = y)) +
+  theme_minimal() +
+  labs(x = "Time from hospitalization to death [days]") +
+  xlim(x_lims)
+
+
+# Time to death
+p_ticu2d <- hosp_data %>%
+  filter(deceased) %>% 
+  ggplot() +
+  geom_histogram(aes(x = time_icu_to_death, y = ..density..), fill = "gray") +
+  geom_line(data = ticu2d_dens, aes(x = x, y = y)) +
+  theme_minimal() +
+  labs(x = "Time from ICU to death [days]") +
+  xlim(x_lims)
+
+# Time to death
+p_tnoicu2d <- hosp_data %>%
+  filter(deceased, is.na(icu_in)) %>% 
+  ggplot() +
+  geom_histogram(aes(x = time_to_death, y = ..density..), fill = "gray") +
+  geom_line(data = tnoicu2d_dens, aes(x = x, y = y)) +
+  theme_minimal() +
+  labs(x = "Time from hospitalization to death without ICU [days]") +
+  xlim(x_lims)
+
+
+grid.arrange(p_th, p_t2icu, p_tiuc, p_t2d, p_ticu2d, p_tnoicu2d, ncol=2)
+```
+
+```{r dist params}
+
+dist_params <- tribble(
+  ~var, ~mean, ~variance,
+  "Time hospitalized", th_dist$estimate[1] , th_dist$estimate[2],
+  "Time from hospitalization to ICU", t2icu_dist$estimate[1], t2icu_dist$estimate[2],
+  "Time in ICU",  ticu_dist$estimate[1],   ticu_dist$estimate[2],
+  "Time from hospitalization to death",th2d_dist$estimate[1], th2d_dist$estimate[2],
+  "Time from ICU to death", ticu2d_dist$estimate[1], ticu2d_dist$estimate[2],
+  "Time from hospitalization to death without ICU", tnoicu2d_dist$estimate[1], tnoicu2d_dist$estimate[2]
+)
+
+kable(dist_params,
+      booktabs = T,
+      digits = 2,
+      caption = "Table A.1. Estimated parameters of key hospitalization time distributions",
+      col.names = c("", "mean (logscale)", "sd (logscale)")) %>% 
+  kable_styling(latex_options = c("striped", "hold_position"),
+                full_width = F)
+
+```
+
+
