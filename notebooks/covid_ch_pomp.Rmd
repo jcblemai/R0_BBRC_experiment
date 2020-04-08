@@ -2,6 +2,8 @@
 title: ""
 css: "report.css"
 output: html_document
+params:
+  config: "../pomp_config.yaml"
 ---
 
 ```{r setup, include=FALSE}
@@ -18,14 +20,16 @@ library(glue)
 
 ```{r load results}
 source("../COVID-pomp/scripts/graph_utils.R")
+source("../COVID-pomp/scripts/utils.R")
 
-ll_to_use <- "d-c-deltah"
+config <- load_config(params$config)
+
+ll_to_use <- config$likelihoods$to_plot
+
 #  Time windows
-load("../COVID-pomp/results/computation_time_windows.rda")  
-
-cantons_to_analyze <- c("AG", "BE", "FR", "GE", "NE", "VD", "VS", "ZH")
-cantons_to_analyze <- c("BE", "BL", "BS", "FR", "GE", "GR", "JU", "LU", "NE", "TI", "VD", "VS", "ZH")
-
+tw_left <- as.Date(config$timewindow_R0$left)
+tw_right <- as.Date(config$timewindow_R0$right)
+cantons_to_analyze <- config$places
 
 filterstats <- readRDS("../COVID-pomp/results/filtered_states_all.rds") %>%
   filter(ll_comp == ll_to_use)
@@ -33,7 +37,7 @@ filterstats <- readRDS("../COVID-pomp/results/filtered_states_all.rds") %>%
 
 ```{r load data}
 # Get data
-fdata <- list.files(path = "../data/ch/cases/", pattern = "COVID19_Fallzahlen_Kanton_*", full.names = TRUE)
+fdata <- list.files(path = "../data/ch/cases/covid_19/fallzahlen_kanton_total_csv/", pattern = "COVID19_Fallzahlen_Kanton_*", full.names = TRUE)
 data <- fdata %>%
   purrr::map(read_csv) %>%    # read in all the files individually, using
   reduce(bind_rows) %>%

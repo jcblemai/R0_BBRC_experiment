@@ -1,33 +1,3 @@
-# Model specification -----------------------------------------------------
-
-## state variable names:
-# S:  Susceptibles
-# E:  Exposed
-# L:  Latent (non-symptomatic but infectious)
-# I:  Infected
-# R:  Recovered
-
-## data names:
-# hosp: reported number of hospitalized people
-
-## parameter names:
-### Pop dynamics
-# N: total population
-### Infection dynamics (suffix _s|d indicate survival/death outcome)
-# l2i: rate L -> I
-# i2d: rate I -> D
-# i2h: rate I -> H/H_s
-# h2hd: rate H -> H_d
-# hs2r: rate H_s -> R
-# hd2d: rate H_d -> D
-# h2u: rate H -> U_s/U_d
-# us2r: rate U_s -> R
-# ud2d: rate U_d -> D
-#### Extra-demographic stochasticity
-# tau: generation time
-# std_W:    standard deviation of the weiner process to perturb the foi       
-### Measurement model
-# epsilon:  under-reporting fraction
 
 # Set variables -----------------------------------------------------------
 
@@ -58,13 +28,12 @@ state_names <- mapply(
 
 # define parameter names for pomp
 ## process model parameters names to estimate
-#param_proc_est_names <- c("std_X", "k", "epsilon")
 
 ## initial value parameters to estimate
 param_iv_est_names <- c("I_0", "R0_0")
 
 ## fixed process model parameters 
-rate_names <- c("e2i", "l2i", "id2o", "i2h", "i2o", "hs2r", "hd2d", "h2u", "us2r", "ud2d")
+rate_names <- c("e2i", "l2i", "id2o", "i2o", "hs2r", "hd2d", "h2u", "us2r", "ud2d")
 prob_names <- c("psevere", "pi2d", "pi2h", "pi2hs", "ph2u", "pu2d")
 #param_proc_fixed_names <- c("pop", rate_names, prob_names,  "alpha", "std_W")
 # define parameter names for pomp
@@ -75,6 +44,14 @@ if (ll_cases) {
 } else {
   param_proc_est_names <- c("std_X")
   param_proc_fixed_names <- c("pop", rate_names, prob_names, "std_W", "k", "epsilon")
+}
+
+if (!is.null(config$parameters_to_fit)) {
+  allin <- unlist(lapply(names(config$parameters_to_fit), function(x) !(x %in% c(rate_names, prob_names))))
+  if (sum(allin) == 0) {
+  param_proc_est_names <- c(param_proc_est_names, names(config$parameters_to_fit))
+  param_proc_fixed_names <- param_proc_fixed_names[!(param_proc_fixed_names %in% names(config$parameters_to_fit))]
+  }
 }
 
 # all parameter names to estimate
@@ -310,3 +287,37 @@ init.Csnippet <- Csnippet("X = log(R0_0 * i2o);
                           S   = nearbyint(pop - I1);
                           N   = pop;
                           tot_I = 0;")
+
+
+
+
+# Model specification -----------------------------------------------------
+
+## state variable names:
+# S:  Susceptibles
+# E:  Exposed
+# L:  Latent (non-symptomatic but infectious)
+# I:  Infected
+# R:  Recovered
+
+## data names:
+# hosp: reported number of hospitalized people
+
+## parameter names:
+### Pop dynamics
+# N: total population
+### Infection dynamics (suffix _s|d indicate survival/death outcome)
+# l2i: rate L -> I
+# i2d: rate I -> D
+# i2h: rate I -> H/H_s
+# h2hd: rate H -> H_d
+# hs2r: rate H_s -> R
+# hd2d: rate H_d -> D
+# h2u: rate H -> U_s/U_d
+# us2r: rate U_s -> R
+# ud2d: rate U_d -> D
+#### Extra-demographic stochasticity
+# tau: generation time
+# std_W:    standard deviation of the weiner process to perturb the foi       
+### Measurement model
+# epsilon:  under-reporting fraction
