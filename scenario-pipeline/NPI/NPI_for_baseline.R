@@ -1,0 +1,88 @@
+
+library(dplyr)
+
+if (FALSE) {         # or whatever values you use to test.
+  ti_str <- '2020-01-31'
+  tf_str <- '2020-08-31'
+  foldername <- 'data/ch/'      
+}
+
+# Function
+getSd <- function(mu, q025, q975) {
+  sd1 <- (mu - q025)/2
+  sd2 <- (q975 - mu)/2
+  return(mean(c(sd1, sd2)))
+}
+
+r0_reduction <- read_csv(paste0(foldername, "r0_reduction.csv"))
+
+# Compute the mean and bounds of the initial R0 from which to sample the simulations from
+left_R0_range <- with(filter(r0_reduction, var == "r0_left"), c(mean(q025), mean(q975)))
+left_R0_mean <- with(filter(r0_reduction, var == "r0_left"), c(mean(mean)))
+left_R0_sd <- getSd(left_R0_mean, left_R0_range[1], left_R0_range[2])
+# Range of reductions: R0_after = reduction * R0_before
+right_R0_range <- with(filter(r0_reduction, var == "r0_right"), c(mean(q025), mean(q975)))
+right_R0_mean <- with(filter(r0_reduction, var == "r0_right"), mean(mean))
+right_R0_sd <- getSd(right_R0_mean, right_R0_range[1], right_R0_range[2])
+
+# Assume reduction on the 20th of March
+start_descent <- as.Date("2020-03-15")
+end_descent <- as.Date("2020-03-22")
+start_ascent <- as.Date("2020-04-19")
+end_ascent <- as.Date("2020-04-23")
+
+places <- read_csv(paste0(foldername,'geodata.csv'))
+dates <- seq.Date(as.Date(ti_str), as.Date(tf_str), 1)
+baseline_dates <- which(dates <= start_descent)
+descent_dates <- which(dates > start_descent & dates <= end_descent)
+low_dates <- which(dates > end_descent & dates <= start_ascent)
+ascent_dates <- which(dates > start_ascent & dates <= end_ascent)
+release_dates <- which(dates > end_ascent)
+
+NPI <- as.data.frame(matrix(0, dim(county.status)[1],length(dates)))
+colnames(NPI) <- as.Date(dates)
+rownames(NPI) <- county.status$ShortName
+
+default_R0 <- 10
+
+# Set Baseline cantons either with inferred R0s when available or with mean
+for (cnt in all_cantons) {
+  if (cnt %in% r0_reduction$ShortName) {
+    # Basline
+    ind_l <- r0_reduction$var == "r0_left" & r0_reduction$ShortName == cnt
+
+    mul <- r0_reduction$mean[ind_l]
+    q025l <- r0_reduction$q025[ind_l]
+    q975l <- r0_reduction$q975[ind_l]
+    sdl <- getSd(mul, q025l,  q975l) 
+    rval_l <- truncnorm::rtruncnorm(n = 1, a = 0, b = 3.5, mean = mul, sd = sdl)/default_R0
+    NPI[cnt, baseline_dates] <- rval_l
+    
+    # Low dates
+    ind_r <- r0_reduction$var == "r0_right" & r0_reduction$ShortName == cnt
+    mur <- r0_reduction$mean[ind_r]
+    q025r <- r0_reduction$q025[ind_r]
+    q975r <- r0_reduction$q975[ind_r]
+    sdr <- getSd(mur, q025r,  q975r) 
+    rval_r <- truncnorm::rtruncnorm(n = 1, a = 0, b = 3.5, mean = mur, sd = sdr)/default_R0
+    NPI[cnt, low_dates] <- rval_r
+    
+    # HERER IS THE DIFFERENCE BETWEEN SCENARIOS
+    release_rval <- truncnorm::rtruncnorm(n = 1, a = 0, b = 3.5, mean = mul, sd = sdl)/default_R0
+    NPI[cnt, release_dates] <- release_rval
+    
+  } else {
+    rval_l <- 
+    NPI[cnt, baseline_dates] <- rval_l
+    rval_r <- truncnorm::rtruncnorm(n = 1, a = 0, b = 3.5, mean = right_R0_mean, sd = right_R0_sd)/default_R0
+    NPI[cnt, low_dates] <- rval_r
+    
+    # HERER IS THE DIFFERENCE BETWEEN SCENARIOS
+    release_rval <- truncnorm::rtruncnorm(n = 1, a = 0, b = 3.5, mean = left_R0_mean, sd = left_R0_sd)/default_R0
+    NPI[cnt, release_dates] <- release_rval
+  }
+ 
+  # Transitions
+  NPI[cnt, descent_dates] <- rval_l + seq_along(descent_dates) * (rval_r-rval_l)/length(descent_dates)
+  NPI[cnt, ascent_dates] <- rval_r + seq_along(ascent_dates) * (release_rval-rval_r)/length(ascent_dates)
+}
