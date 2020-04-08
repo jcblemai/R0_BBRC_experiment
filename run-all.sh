@@ -3,8 +3,8 @@
 # We assume running this from the script directory
 lls=("d-c-deltah" "d-deltah")
 
-cantons=("BE" "BL" "BS" "FR" "GE" "GR" "JU" "LU" "NE" "TI" "VD" "VS" "ZH")
-# missing: AG AI AR GL NW OW SG SH SO SZ TG UR ZG
+cantons=("BE" "BL" "BS" "FR" "GE" "GR" "JU"  "NE" "TI" "VD" "VS" "ZH")
+# missing: AG AI AR GL NW OW SG SH SO SZ TG UR ZG "LU"
 
 for ll in ${lls[@]}; do
   for canton in ${cantons[@]}; do

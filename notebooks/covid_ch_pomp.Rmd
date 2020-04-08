@@ -6,6 +6,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 options(scipen=999)
+#knitr::opts_knit$set(root.dir = '../')
 knitr::opts_chunk$set(echo = F, message=F, warning = F)
 knitr::opts_knit$set(eval.after = "fig.cap")
 library(tidyverse)
@@ -18,10 +19,12 @@ library(glue)
 ```{r load results}
 source("../COVID-pomp/scripts/graph_utils.R")
 
-ll_to_use <- "c-d-deltah"
+ll_to_use <- "d-c-deltah"
 #  Time windows
 load("../COVID-pomp/results/computation_time_windows.rda")  
 cantons_to_analyze <- c("AG", "BE", "FR", "GE", "NE", "VD", "VS", "ZH")
+cantons_to_analyze <- c("BE", "BL", "BS", "FR", "GE", "GR", "JU", "LU", "NE", "TI", "VD", "VS", "ZH")
+
 
 filterstats <- readRDS("../COVID-pomp/results/filtered_states_all.rds") %>%
   filter(ll_comp == ll_to_use)

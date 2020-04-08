@@ -10,7 +10,7 @@ source("COVID-pomp/scripts/graph_utils.R")
 # Setup ------------------------------------------------------------------------
 
 cantons_to_analyze <- c("AG", "BE", "FR", "GE", "NE", "VD", "VS", "ZH")
-
+cantons_to_analyze <- c("BE", "BL", "BS", "FR", "GE", "GR", "JU", "LU", "NE", "TI", "VD", "VS", "ZH")
 # Time windows over which to compute changes in R
 tw_left <- as.Date(c("2020-03-01", "2020-03-10"))
 tw_right <- as.Date(c("2020-03-29", "2020-04-03"))
@@ -28,7 +28,7 @@ for (i in seq(nrow(country))) {
   country$ShortName[i] <- lapply(geodata['ShortName'][geodata$CantonNumber == country$KANTONSNUM[i],], as.character) # TODO hardcoded
 }
 
-ffilter <- list.files(path = "COVID-pomp/results/", pattern = "filtered_covid_", full.names = TRUE) %>% 
+ffilter <- list.files(path = "COVID-pomp/results/", pattern = "filtered_", full.names = TRUE) %>% 
   .[str_detect(., ".rds")] %>% 
   .[str_detect(., str_c(cantons_to_analyze, collapse = "|"))]
 
