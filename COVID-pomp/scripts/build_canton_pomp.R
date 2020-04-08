@@ -15,13 +15,13 @@ source("COVID-pomp/scripts/utils.R")
 source("COVID-pomp/scripts/mifCooling.R")
 
 option_list = list(
-  optparse::make_option(c("-c", "--config"), action="store", default='config.yaml', type='character', help="path to the config file"),
+  optparse::make_option(c("-c", "--config"), action="store", default='pomp_config.yaml', type='character', help="path to the config file"),
   optparse::make_option(c("-j", "--jobs"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-r", "--run_level"), action="store", default=1, type='numeric', help="run level for MIF"),
   optparse::make_option(c("-p", "--place"), action="store", default='TI', type='character', help="name of place to be run, a Canton abbrv. in CH"),
-  optparse::make_option(c("-l", "--likelyhood"), action="store", default='c-d-deltah', type='character', help="likelyhood to be used for filtering")
+  optparse::make_option(c("-l", "--likelihood"), action="store", default='c-d-deltah', type='character', help="likelihood to be used for filtering")
 )
-opt = optparse::parse_args(optparse::OptionParser(option_list=option_list))
+opt <- optparse::parse_args(optparse::OptionParser(option_list=option_list))
 config <- load_config(opt$c)
 
 
@@ -33,17 +33,18 @@ canton <- opt$place
 # deltah: balances of inputs and outputs from hospitals
 # c: cases
 # d: total deaths
-lik_components <- str_split(opt$likelyhood, "-")[[1]]#c("deltah", "c", "d")
+lik_components <- str_split(opt$likelihood, "-")[[1]]#c("deltah", "c", "d")
 lik_log <- str_c(str_c("ll_", lik_components), collapse = "+")
 lik <- str_c(str_c("ll_", lik_components), collapse = "*")
 # Test for cases in the likelihood
 ll_cases <- "c" %in% lik_components
-suffix <- glue("{config$name}_{canton}_{str_c(lik_components, collapse = '-')}")
+param_suffix <- ifelse(is.null(config$parameters_to_fit), '', str_c(names(config$parameters_to_fit), collapse = '-'))
+suffix <- glue("{config$name}_{canton}_{str_c(lik_components, collapse = '-')}_{param_suffix}")
 
 
 # Data ---------------------------------------------------------------
 
-data_file <- glue("data/ch/cases/COVID19_Fallzahlen_Kanton_{canton}_total.csv")
+data_file <- glue("data/ch/cases/covid_19/fallzahlen_kanton_total_csv/COVID19_Fallzahlen_Kanton_{canton}_total.csv")
 
 cases_data <- read_csv(data_file, col_types = cols()) %>% 
   mutate(cases = c(NA, diff(ncumul_conf)),
@@ -55,7 +56,7 @@ cases_data <- read_csv(data_file, col_types = cols()) %>%
          delta_ID = delta_hosp + discharged)
 
 data <- select(cases_data, 
-              date, cases, deaths, cum_deaths, hosp_curr, discharged, delta_hosp, delta_ID) %>% 
+               date, cases, deaths, cum_deaths, hosp_curr, discharged, delta_hosp, delta_ID) %>% 
   mutate(hosp_incid = NA)
 
 # Set start date 
@@ -107,6 +108,19 @@ data_pomp <- data %>%
   mutate(time = dateToYears(date)) %>% 
   select(-date, -cum_deaths)
 
+# Transformation of parameters
+log_trans <- c("std_X", "R0_0", ifelse(ll_cases, "k", NA)) %>% .[!is.na(.)]
+logit_trans <- c("I_0", ifelse(ll_cases, "epsilon", NA)) %>% .[!is.na(.)]
+
+for (par in seq_along(config$parameters_to_fit)) {
+  if (config$parameters_to_fit[[par]]$transform == "log"){
+    log_trans <- c(log_trans, names(config$parameters_to_fit)[par])
+  } else if (config$parameters_to_fit[[par]]$transform == "logit"){
+    logit_trans <- c(logit_trans, names(config$parameters_to_fit)[par])
+  } 
+}
+
+  
 covid <- pomp(
   # set data
   data = data_pomp, 
@@ -130,10 +144,7 @@ covid <- pomp(
   accumvars = state_names[str_detect(state_names, "a_")],
   # initializer
   rinit = init.Csnippet,
-  partrans = parameter_trans(
-    log = c("std_X", "R0_0", ifelse(ll_cases, "k", NA)) %>% .[!is.na(.)],
-    logit = c("I_0", ifelse(ll_cases, "epsilon", NA)) %>% .[!is.na(.)]
-  ),
+  partrans = parameter_trans(log = log_trans, logit = logit_trans),
   # Add density and generation fuctions for Skellam dist
   globals = str_c(dskellam.C, rskellam.C, sep = "\n")
 )
@@ -143,7 +154,7 @@ save(covid, file = glue("COVID-pomp/interm/pomp_{suffix}.rda"))
 cat("************ \n SAVED:", canton, "pomp object \n************")
 
 
-cat("************ \nFITTING:", canton, "with likelihood:", opt$likelyhood, "\n************")
+cat("************ \nFITTING:", canton, "with likelihood:", opt$likelihood, "\n************")
 
 
 # files for results
@@ -186,6 +197,16 @@ parameter_bounds <- tribble(
   "R0_0", 1.5, 3
 )
 
+if (!is.null(config$parameters_to_fit)) {
+  # additional params to fit
+  other_bounds <- mapply(x = names(config$parameters_to_fit),
+                         y = config$parameters_to_fit, 
+                         function(x, y) tibble(param = x, lower = y$lower, upper = y$upper),
+                         SIMPLIFY = F) %>% 
+    bind_rows()
+  parameter_bounds <- rbind(parameter_bounds, other_bounds)
+}
+
 if (!ll_cases) {
   parameter_bounds <- parameter_bounds %>% filter(!(param %in% c("k", "epsilon")))
 }
@@ -209,17 +230,25 @@ init_params <- cbind(init_params,
                             nrow = sir_Ninit_param[run_level]) %>% 
                        set_colnames(param_fixed_names))
 
-job_rw.sd <- eval(
-  parse(
-    text = str_c("rw.sd(",
-                 " std_X  = ", rw.sd_param["regular"],
-                 ", k  = ", ifelse(ll_cases, rw.sd_param["regular"], 0),
-                 ", epsilon  = ", ifelse(ll_cases, rw.sd_param["regular"], 0),
-                 ", I_0  = ivp(",  rw.sd_param["ivp"], ")",
-                 ", R0_0  = ivp(",  rw.sd_param["ivp"], ")",
-                 ")")
-  )
-)
+
+
+if (!is.null(config$parameters_to_fit)) {
+  other_rw <- lapply(names(config$parameters_to_fit), 
+                     function(x) glue(", {x} = {rw.sd_param['regular']}")) %>% 
+    unlist() %>% 
+    str_c(sep = " ")
+} else {
+  other_rw <- ""
+}
+
+rw_text <- glue("rw.sd( std_X  = {rw.sd_param['regular']}
+                , k  = {ifelse(ll_cases, rw.sd_param['regular'], 0)}
+                , epsilon   = {ifelse(ll_cases, rw.sd_param['regular'], 0)}
+                 , I_0  = ivp({rw.sd_param['ivp']})
+                 , R0_0  = ivp({rw.sd_param['ivp']})
+                {other_rw})")
+
+job_rw.sd <- eval(parse(text = rw_text))
 
 # MIF --------------------------------------------------------------------------
 
@@ -268,3 +297,4 @@ t2 <- system.time({
 write_csv(liks, path = ll_filename, append = file.exists(ll_filename))
 
 cat("----- Done LL, took", round(t2["elapsed"]/60), "mins \n")
+

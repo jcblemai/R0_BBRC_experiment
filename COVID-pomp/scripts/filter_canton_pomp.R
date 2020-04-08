@@ -15,28 +15,28 @@ source("COVID-pomp/scripts/mifCooling.R")
 source("COVID-pomp/scripts/utils.R")
 
 option_list = list(
-  optparse::make_option(c("-c", "--config"), action="store", default='config.yaml', type='character', help="path to the config file"),
+  optparse::make_option(c("-c", "--config"), action="store", default='pomp_config.yaml', type='character', help="path to the config file"),
   optparse::make_option(c("-p", "--place"), action="store", default='TI', type='character', help="name of place to be run, a Canton abbrv. in CH"),
   optparse::make_option(c("-j", "--jobs"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
-  optparse::make_option(c("-l", "--likelyhood"), action="store", default='d-c-deltah', type='character', help="likelyhood to be used for filtering")
+  optparse::make_option(c("-n", "--nfilter"), action="store", default=10, type='numeric', help="Number of filtering iterations"),
+  optparse::make_option(c("-l", "--likelihood"), action="store", default='c-d-deltah', type='character', help="likelihood to be used for filtering")
 )
-opt = optparse::parse_args(optparse::OptionParser(option_list=option_list))
+opt <- optparse::parse_args(optparse::OptionParser(option_list=option_list))
 config <- load_config(opt$c)
 
 # Setup ------------------------------------------------------------------------
-n_filter <- 1e3
 # Read Rscript arguments
 canton <- opt$place
 # Which likelihood components to use?
 # deltah: balances of inputs and outputs from hospitals
 # c: cases
 # d: total deaths
-lik_components <- str_split(opt$likelyhood, "-")[[1]]#c("deltah", "c", "d")
+lik_components <- str_split(opt$likelihood, "-")[[1]]#c("deltah", "c", "d")
 lik_log <- str_c(str_c("ll_", lik_components), collapse = "+")
 lik <- str_c(str_c("ll_", lik_components), collapse = "*")
 # Test for cases in the likelihood
 ll_cases <- "c" %in% lik_components
-suffix <- glue("{config$name}_{canton}_{str_c(lik_components, collapse = '-')}")
+suffix <- glue("{config$name}_{canton}_{str_c(lik_components, collapse = '-')}_{ifelse(is.null(config$parameters_to_fit), '', str_c(names(config$parameters_to_fit), collapse = '-'))}")
 
 filter_filename <- glue("COVID-pomp/results/filtered_{suffix}.rds")
 
@@ -47,7 +47,6 @@ cl <- makeCluster(opt$jobs)
 registerDoSNOW(cl)
 
 # Filter --------------------------------------------------------------------
-
 
 best_params <- liks %>%
   filter(loglik > max(loglik) - 4) %>% 
@@ -60,7 +59,7 @@ filter_dists <- foreach(pari = iter(best_params, "row"),
                         .packages = c("pomp", "tidyverse", "foreach", "magrittr"),
                         .combine = rbind,
                         .noexport = c("par")) %do% {
-                          foreach(it = icount(n_filter),
+                          foreach(it = icount(opt$nfilter),
                                   .combine = rbind,
                                   .packages = c("pomp", "tidyverse", "foreach", "magrittr")
                           ) %dopar% {
@@ -102,7 +101,7 @@ filter_stats <- filter_dists %>%
 plot_states <- c("tot_I", "Rt", state_names[str_detect(state_names, "a_|_curr")], "D") 
 
 # repeat for plot
-data_file <- glue("data/ch/cases/COVID19_Fallzahlen_Kanton_{canton}_total.csv")
+data_file <- glue("data/ch/cases/covid_19/fallzahlen_kanton_total_csv/COVID19_Fallzahlen_Kanton_{canton}_total.csv")
 
 cases_data <- read_csv(data_file, col_types = cols()) %>% 
   mutate(cases = c(NA, diff(ncumul_conf)),
