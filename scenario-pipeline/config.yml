@@ -26,8 +26,9 @@ seeding:
 
 interventions:
   scenarios:
-    - Wuhan
-    - None
+    - Current
+    - Stopped
+    - TestIsolate
   settings:
     Current:
       template: ReduceR0
@@ -43,7 +44,7 @@ interventions:
       value:
         distribution: fixed
         value: 0
-    TestandIsolate:
+    TestIsolate:
       template: ReduceR0
       period_start_date: 2020-03-19
       period_end_date: 2020-05-14
