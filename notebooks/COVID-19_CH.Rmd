@@ -44,7 +44,6 @@ country <- st_read("data/ch/shp/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp")
 
 for (i in seq(nrow(country))) {
   country$ShortName[i] <- lapply(geodata['ShortName'][geodata$CantonNumber == country$KANTONSNUM[i],], as.character) # TODO hardcoded
-  country$geoid[i] <- lapply(geodata['ShortName'][geodata$CantonNumber == country$KANTONSNUM[i],], as.character)
 }
 
 ffilter <- list.files(path = "COVID-pomp/results/", pattern = glue("filtered_covid_*"), full.names = TRUE)

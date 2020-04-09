@@ -13,7 +13,7 @@ spatial_setup:
   shapefile: shp/ch.shp # Two is redundant.  We should fix this
   mobility: mobility.txt
   popnodes: pop2018
-  nodenames: ShortName  # Name of the column in geodata with uniquely name of nodes
+  nodenames: geoid  # Name of the column in geodata with uniquely name of nodes
   include_in_report: CH
 
 #seeding:
@@ -81,8 +81,8 @@ report:
   formatting:
     scenario_labels_short: ["WH","UC"]
     scenario_labels:
-    - Wuhan/Lockdown
-    - Worst Case Uncontrolled
+      - Wuhan/Lockdown
+      - Worst Case Uncontrolled
     scenario_colors: ["#D95F02", "#1B9E77"]
     pdeath_labels: ["0.25% IFR", "0.5% IFR", "1% IFR"]
     display_dates: ["2020-5-1", "2020-7-1", "2020-9-1"]
