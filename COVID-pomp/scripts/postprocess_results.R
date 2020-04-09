@@ -22,17 +22,6 @@ tw_left <- as.Date(config$timewindow_R0$left)
 tw_right <- as.Date(config$timewindow_R0$right)
                    
 # Load results -----------------------------------------------------------------
-# Load data that has been produced
-geodata <- read.csv("data/ch/geodata.csv")
-# files_filter <- list.files(path = "COVID-pomp/results/", pattern = "filtered_*") %>% 
-  # grep(param_suffix, ., value = T)
-
-# places <- str_extract(files_filter, "(?<=CH_)[A-Z]{2}(?=_)")
-country <- st_read("data/ch/shp/ch.shp")
-
-for (i in seq(nrow(country))) {
-  country$ShortName[i] <- lapply(geodata['ShortName'][geodata$CantonNumber == country$KANTONSNUM[i],], as.character) # TODO hardcoded
-}
 
 ffilter <- list.files(path = "COVID-pomp/results/", pattern = "filtered_", full.names = TRUE) %>% 
   .[str_detect(., ".rds")] %>% 
@@ -40,7 +29,7 @@ ffilter <- list.files(path = "COVID-pomp/results/", pattern = "filtered_", full.
 
 # Get results
 states_to_plot <- c("tot_I", "Rt", "D", "H_curr", "U_curr")
-sims <- getStates(ffilter, states_to_plot) %>% filter(ll_comp == "c-d-deltah", !is.na(value))
+sims <- getStates(ffilter, states_to_plot) %>% filter(ll_comp == config$likelihoods$to_plot, !is.na(value))
 # Extract statistics
 filterstats <- computeFilterStats(sims)  %>% filter( !is.nan(mean))
 r0_reduction <- computeR0Reduction(filter(sims, var == "Rt"), 

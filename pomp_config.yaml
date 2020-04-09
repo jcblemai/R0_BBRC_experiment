@@ -7,15 +7,16 @@ timewindow_R0:
 likelihoods:
   to_compute:
     #- d-deltah
-    - c-d-deltah
+    - c-d-h
   to_plot:
-     - c-d-deltah
+     - c-d-h
 parameters_to_fit:
   pi2h:
     upper: .7
     lower: .3
     transform: "logit"
 places:
+  - CH
   - BE
   - BL
   - BS
@@ -23,7 +24,7 @@ places:
   - GE
   - GR
   - JU
- # - LU
+  #- LU
   - NE
   - TI
   - VD

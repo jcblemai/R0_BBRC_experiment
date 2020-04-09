@@ -32,7 +32,9 @@ tw_right <- as.Date(config$timewindow_R0$right)
 cantons_to_analyze <- config$places
 
 filterstats <- readRDS("../COVID-pomp/results/filtered_states_all.rds") %>%
-  filter(ll_comp == ll_to_use)
+  filter(ll_comp == ll_to_use, ShortName %in% config$places)
+
+write_csv(filterstats %>% filter(var == "Rt"), "../../COVID-19_CHVaud/notebooks/r0.csv")
 ```
 
 ```{r load data}
@@ -69,8 +71,8 @@ plot_states(filterstats, "Rt", cantons = cantons_to_analyze, fancol = 4, ylabel 
 ```
 
 ```{r reduction, fig.cap=paste("**Figure 2. Percent change of $R_0$**. Relative change was computed based on the mean value of $R_0$ in the time windows",  paste(format(tw_left, "%B %d"), collapse = "-"), "and",  paste(format(tw_right, "%B %d"), collapse = "-"), "of simulations. Lines give the 95% simulation envelope, thick line the IQR and points the medians."), fig.width=5, fig.height=4}
-r0_reduction <- readRDS("../COVID-pomp/results/R0_reduction.rds") %>% 
-  filter(ll_comp == ll_to_use)
+r0_reduction <- readRDS("../COVID-pomp/results/R0_reduction.rds") %>%
+  filter(ll_comp == ll_to_use, ShortName %in% config$places)
 
 
 r0_reduction %>% 

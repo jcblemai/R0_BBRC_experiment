@@ -7,7 +7,7 @@ places=(%c)
 
 for ll in ${lls[@]}; do
   for place in ${places[@]}; do
-    Rscript COVID-pomp/scripts/build_canton_pomp.R -p ${place} -l ${ll} -r %r -j %j
-    Rscript COVID-pomp/scripts/filter_canton_pomp.R -p ${place} -l ${ll} -j %j -n %n
+    Rscript COVID-pomp/scripts/build_canton_pomp.R -p ${place} -l ${ll} -r %r -j %j -w %w
+    Rscript COVID-pomp/scripts/filter_canton_pomp.R -p ${place} -l ${ll} -j %j -n %n -w %w
   done
 done
