@@ -49,7 +49,7 @@ hosp_data <- read_csv("../data/vd/hospitalization_data_full_20200408.csv") %>%
   mutate_at(vars(contains("time_")), as.numeric)
 
 # Cantonal data
-cantonal_data <- read_csv("../data/ch/cases/COVID19_Fallzahlen_Kanton_VD_total.csv") %>% 
+cantonal_data <- read_csv("../data/ch/cases/covid_19/fallzahlen_kanton_total_csv/COVID19_Fallzahlen_Kanton_VD_total.csv") %>% 
   mutate(cases_incidence =  c(ncumul_conf[1], diff(ncumul_conf)),
          deaths_incidence = c(ncumul_deceased[1], diff(ncumul_deceased)),
          cases_cumul = ncumul_conf,
@@ -387,7 +387,7 @@ grid.arrange(p_th, p_t2icu, p_tiuc, p_t2d, p_ticu2d, p_tnoicu2d, ncol=2)
 ```{r dist params}
 
 dist_params <- tribble(
-  ~var, ~mean, ~variance,
+  ~var, ~meanlog, ~sdlog,
   "Time hospitalized", th_dist$estimate[1] , th_dist$estimate[2],
   "Time from hospitalization to ICU", t2icu_dist$estimate[1], t2icu_dist$estimate[2],
   "Time in ICU",  ticu_dist$estimate[1],   ticu_dist$estimate[2],
@@ -395,7 +395,7 @@ dist_params <- tribble(
   "Time from ICU to death", ticu2d_dist$estimate[1], ticu2d_dist$estimate[2],
   "Time from hospitalization to death without ICU", tnoicu2d_dist$estimate[1], tnoicu2d_dist$estimate[2]
 )
-
+write_csv(dist_params, "~/Desktop/hosp_params.csv")
 kable(dist_params,
       booktabs = T,
       digits = 2,
