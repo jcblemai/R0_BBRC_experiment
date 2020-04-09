@@ -217,7 +217,7 @@ min_param_val <- 1e-5
 parameter_bounds <- tribble(
   ~param, ~lower, ~upper,
   # Process noise
-  "std_X", -2, 2, #in log-scale
+  "std_X", 3, 4, #in log-scale
   # Measurement model
   "k", .1, 10,
   "epsilon", 0.2, 0.5,
