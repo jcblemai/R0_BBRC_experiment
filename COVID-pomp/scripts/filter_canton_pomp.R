@@ -38,8 +38,7 @@ lik <- str_c(str_c("ll_", lik_components), collapse = "*")
 downweight <- opt$downweight
 # Test for cases in the likelihood
 ll_cases <- "c" %in% lik_components
-param_suffix <- ifelse(is.null(config$parameters_to_fit), '', str_c(names(config$parameters_to_fit), collapse = '-'))
-suffix <- glue("{config$name}_{canton}_{str_c(c(lik_components, downweight), collapse = '-')}_{param_suffix}")
+suffix <- buildSuffix(config$name, canton, lik_components, config$parameters_to_fit)
 
 filter_filename <- glue("COVID-pomp/results/filtered_{suffix}.rds")
 
@@ -104,13 +103,14 @@ filter_stats <- filter_dists %>%
 plot_states <- c("tot_I", "Rt", state_names[str_detect(state_names, "a_|_curr")], "D") 
 
 # repeat for plot
-data_file <- glue("data/ch/cases/covid_19/fallzahlen_kanton_total_csv/COVID19_Fallzahlen_Kanton_{canton}_total.csv")
+data_file <- glue("data/ch/cases/covid_19/fallzahlen_kanton_total_csv_v2/COVID19_Fallzahlen_Kanton_{canton}_total.csv")
 
 cases_data <- read_csv(data_file, col_types = cols()) %>% 
   mutate(cases = c(NA, diff(ncumul_conf)),
          deaths = c(NA, diff(ncumul_deceased)),
          cum_deaths = ncumul_deceased,
-         hosp_curr = ncumul_hosp,
+         hosp_curr = current_hosp,
+         hosp_incid = new_hosp,
          discharged = c(ncumul_released[1], diff(ncumul_released)),
          delta_hosp = c(hosp_curr[1], diff(hosp_curr)),
          delta_ID = delta_hosp + discharged)
