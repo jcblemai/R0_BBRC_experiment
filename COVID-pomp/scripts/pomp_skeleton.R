@@ -74,6 +74,9 @@ dmeasure.Csnippet <- Csnippet(glue("
   ll_na = (give_log) ? 0 : 1;
   if (!ISNA(cases)) {
     ll_c = dnbinom_mu(cases, k, epsilon * a_I, give_log);
+    if ({{downweight}} == 1) {
+      ll_c = (give_log) ? ll_c + log(0.5) : ll_c * 0.5;
+    }
   } else {
     ll_c = ll_na;
   }
@@ -95,8 +98,18 @@ dmeasure.Csnippet <- Csnippet(glue("
   if (!ISNA(hosp_incid)) {
     ll_h = dpois(hosp_incid, a_H, give_log);
   } else {
+  if (!ISNA(delta_ID)) {
+    ll_h = dskellam(delta_ID, a_H, a_DH + a_DU, give_log);
+  } else {
+  if (!ISNA(delta_hosp)) { 
+    // if info on releases not available, give hosp curr
+    ll_h = dskellam(delta_hosp, a_H, a_DH + a_DU + a_O, give_log);
+  } else {
     ll_h = ll_na;
   }
+  }
+  }
+  
   if (!ISNA(deaths)) {
    ll_d = dpois(deaths, a_D, give_log);
   } else {
