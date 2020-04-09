@@ -1,5 +1,5 @@
 ---
-title: "[STATE] Scenario Report"
+title: "Switzerland Scenario Report"
 author: ""
 output:
   html_document:
@@ -9,10 +9,7 @@ output:
 bibliography: ReportReferences.bib
 params:
   config_file: "config.yml"
-    
 ---
-
-Prepared by [Johns Hopkins ID Dynamics](https://iddynamics.jhsph.edu/) Working Group  
 Updated `r Sys.Date()`
 
 **FOR PLANNING PURPOSES ONLY: NOT A FORECAST**
@@ -37,6 +34,7 @@ options(scipen=999)
 library(tidyverse)
 library(covidcommon)
 library(report.generation)
+library(kableExtra)
 
 nfiles <- 15 ## set to NULL or the actual number of sim files to include for final report
 
@@ -75,22 +73,35 @@ R0_range <- c(config$seir$parameters$R0s$low, config$seir$parameters$R0s$high)
 
 ```
 
+## Summary 
+
+This report compares the health impact and surge capacity needs for the COVID-19 epidemic in Canton de Vaud. The underlying model is based on our best understanding of SARS-CoV-2 natural history and transmission, and uses current demographic and epidemiologic data from Vaud and other locations (Table 1). We project the number of hospitalizations, ICU admissions, and deaths in both the short and long term under different public-health intervention scenarios.
+
+```{r params, echo=FALSE}
+read_csv("../data/vd/VD_params.csv") %>% 
+  kable(booktabs = T,
+        caption = "Table 1. Key parameters and assumptions used in the model. Hospitalization values derived from Canton de Vaud reflects our current estimate under the available data. As so, it underestimate the durations as it's biased towards short hospital stays. As more data become available, we'll provide better estimates.") %>%
+  kable_styling(latex_options = c("striped", "hold_position"),
+                full_width = T)
+```
+
 We compared `r nscenarios` intervention scenarios for model simulations from `r print_pretty_date(sim_start_date)` through `r print_pretty_date(sim_end_date)`:
 
-[CHANGE BELOW DETAILS ABOUT INTERVENTIONS]
+We consider three planning scenarios:
 
-1. *Lockdown followed by Worst-Case Uncontrolled Spread:* This scenario has statewide school closures from March 13-19 followed by a statewide stay-at-home policy from March 19 through May 14. All interventions are then removed (back to worst-case uncontrolled transmission) starting May 15.
+- **Current Measures**, which assumes measures as they were instituted in Switzerland:
 
-1. *Lockdown followed by Test and Isolate:* This scenario has statewide school closures from March 13-19 followed by a statewide stay-at-home policy from March 19 through May 14. From May 15 through December 31, there is a targeted test and isolate strategy similar to that implemented in South Korea.
+    - School closure on March 13,
+    - Physical distancing measures progressively established from March 16 to March 20.  CHECK IF SAME
 
-1. *Lockdown followed by Moderate Social Distancing:* This scenario has statewide school closures from March 13-19 followed by a statewide stay-at-home policy from March 19 through May 14. From May 15 through December 31, there is moderately restrictive social distancing similar to that in US cities during the 1918 influenza pandemic.
+We fitted the impact of these moderately restrictive non-pharmaceutical interventions (NPIs) on cases, hospitalizations and deaths per canton. In this scenario, we assume these measures are maintained for the foreseeable future.
 
-[MAYBE WE SHOULD THEN ADD SOME SUMMARY STATEMENTS ABOUT OUR FINDINGS?]
+- **Current Measures Stopped May 31**, the measures described in the Current Measures scenario are held up until May 31st, then we assume a return to baseline, early epidemic level transmissibility for the foreseeable future.
 
-[ALTER BELOW DESCRIPTIVE STRING FOR SCENARIO CAPTIONS]
+- **Test and Isolate**, which assumes that current measures are replace on May 31th by a test and isolation, that shorten the infectious period of about half for about half of the individuals. This measure are maintained for the foreseeable future.
 
 ```{r rmd_formatting}
-scen_desc_str <- "three scenarios with 8-week lockdown followed by 1) worst-case uncontrolled spread, 2) targeted testing and isolation, and 3) moderately restrictive social distancing"
+scen_desc_str <- "three scenarios with current measures unil May 31 followed by 1) a indefinite continuation of current measures, 2) a return to baseline transmissiblity, and 3) targeted testing and isolation"
 fig_counter <- 1
 tab_counter <- 1
 ```
@@ -102,16 +113,14 @@ for (i in 1:length(config$hospitalization$parameters$p_death_names)) {
     state_hosp_totals[[i]] <- load_hosp_geocombined_totals(scn_dirs,
                                                num_files = nfiles,
                                                scenariolabels = config$report$formatting$scenario_labels,
-                                               name_filter= config$hospitalization$parameters$p_death_names[i],
-                                               incl_geoids = included_geoids,
-                                               geoid_len = 5) %>%
+                                               name_filter= config$hospitalization$parameters$p_death_names[i]) %>%
         mutate(pdeath=config$hospitalization$parameters$p_death[i])
 }
 
 state_hosp_totals <- dplyr::bind_rows(state_hosp_totals)
 ```
 
-```{r summary_fig, fig.cap = cap}
+```{r summary_fig_HOSP, fig.cap = cap}
 plot_ts_hosp_state_sample(state_hosp_totals,
                           varname = "NhospCurr",
                           varlabel = "Daily hospital occupancy",
@@ -122,6 +131,18 @@ plot_ts_hosp_state_sample(state_hosp_totals,
                           pdeath_level = 0.01)
 
 cap <- paste0("**Fig. ", fig_counter, "**: Daily hospital occupancy for 15 simulation realizations for ", scen_desc_str, "at 1 % IFR assumptions.")
+```
+```{r summary_fig_ICU, fig.cap = cap}
+plot_ts_hosp_state_sample(state_hosp_totals,
+                          varname = "NICUCurr",
+                          varlabel = "Daily ICU occupancy",
+                          scenario_labels = config$report$formatting$scenario_labels,
+                          scenario_cols = config$report$formatting$scenario_colors,
+                          sim_start_date = config$start_date,
+                          sim_end_date = config$end_date,
+                          pdeath_level = 0.01)
+
+cap <- paste0("**Fig. ", fig_counter, "**: Daily ICU occupancy for 15 simulation realizations for ", scen_desc_str, "at 1 % IFR assumptions.")
 ```
 
 ```{r load_inf_geounit_peaks_date}
@@ -183,7 +204,7 @@ for (i in 1:length(config$hospitalization$parameters$p_death_names)) {
 
 ### Summary
 
-`r paste0("**Tab.", tab_counter, "**: Summary across", scen_desc_str, ". Estimates are presented across", length(config_Mid$report$formatting$display_dates)+1, "time periods for 1% IFR assumptions.")`
+`r paste0("**Tab.", tab_counter, "**: Summary across", scen_desc_str, ". Estimates are presented across", length(config$report$formatting$display_dates)+1, "time periods for 1% IFR assumptions.")`
 
 ```{r scn_time_sum}
 make_scn_time_summary_table(state_hosp_totals %>% dplyr::filter(pdeath==.01), config$report$formatting$display_dates)
@@ -217,22 +238,22 @@ fig_counter <- fig_counter+1
 ```
 
 ## Scenario Summaries
-
+<!--
 [IF AVAILABLE, LOAD BED DATA AS IN THE EXAMPLE THAT FOLLOWS]
 ```{r load_special_md_data}
 
-source("R/load_beds_by_county_[STATE].R")
+source("R/load_beds_by_Canton_[STATE].R")
 bedtype <- "staffed ICU"
 vname <- "n_icu_bed_staffed"
 hosp_vname <- "icu_curr"
-occup_assum <- 0.68 ## assumes ICU occupancy is 68% per county over time on non-COVID patients
+occup_assum <- 0.68 ## assumes ICU occupancy is 68% per Canton over time on non-COVID patients
 bedtype_label <- paste("Available", bedtype, "ICU beds, calculated as", (1-occup_assum)*100, "% of", bedtype, "Beds")
 
-md_beddata <- load_beds_by_county_md(filename = "data/east-coast/md_hospbeddata.csv",
+md_beddata <- load_beds_by_Canton_md(filename = "data/east-coast/md_hospbeddata.csv",
                                               varname = vname,
                                               bed_percentage = 1-occup_assum)
 
-## dataframe to show when hosp_curr exceeds bed data by county
+## dataframe to show when hosp_curr exceeds bed data by Canton
 thresholddat <- load_hosp_geounit_threshold(scn_dirs,
                                             num_files = nfiles,
                                             threshold = md_beddata,
@@ -243,10 +264,8 @@ thresholddat <- load_hosp_geounit_threshold(scn_dirs,
                                             scenario_labels = config$report$formatting$scenario_labels,
                                             geoid_len = 5)
 ```
-
-### Scenario 1: [Scenario Name]
-
-[BRIEF SCENARIO DESCRIPTION]
+-->
+### Scenario 1: Current Measures
 
 `r paste("**Tab.", tab_counter, "** State-level summary for", config$report$formatting$scenario_labels[1], "scenario reported for the period from", sim_start_date, "through the dates specified by the column headers.")`
 
@@ -286,10 +305,56 @@ ARmap3 <- plot_geounit_attack_rate_map(cum_inf_dates,
                             viridis_palette = "cividis")
 cowplot::plot_grid(ARmap1, ARmap2, ARmap3, ncol=3)
 
-cap <- paste("**Fig.", fig_counter, "** County-level map of infections per 10,000 for", config$report$formatting$scenario_labels[1], " strategy.")
+cap <- paste("**Fig.", fig_counter, "** Canton-level map of infections per 10,000 for", config$report$formatting$scenario_labels[1], " strategy.")
 fig_counter <- fig_counter+1
 ```
 
+### Scenario 2: Current Measures stopped May 31
+
+`r paste("**Tab.", tab_counter, "** State-level summary for", config$report$formatting$scenario_labels[2], "scenario reported for the period from", sim_start_date, "through the dates specified by the column headers.")`
+
+```{r scn_state_table2}
+make_scn_state_table(config$report$formatting$scenario_labels[2],
+                     state_hosp_totals,
+                     table_dates = config$report$formatting$display_dates,
+                     pdeath_labels = config$report$formatting$pdeath_labels,
+                     pdeath_filecode = config$hospitalization$parameters$p_death)
+
+tab_counter <- tab_counter+1
+```
+
+
+```{r ARmaps2, fig.cap = cap}
+ARmap1 <- plot_geounit_attack_rate_map(cum_inf_dates,
+                            geodata,
+                            shp,
+                            scenariolabel = config$report$formatting$scenario_labels[2],
+                            display_date = config$report$formatting$display_dates[2],
+                            viridis_palette = "plasma",
+                            popnodes = config$spatial_setup$popnodes)
+
+ARmap2 <- plot_geounit_attack_rate_map(cum_inf_dates,
+                            geodata,
+                            shp,
+                            scenariolabel = config$report$formatting$scenario_labels[2],
+                            display_date = config$report$formatting$display_dates[2],
+                            viridis_palette = "viridis",
+                            popnodes = config$spatial_setup$popnodes)
+
+ARmap3 <- plot_geounit_attack_rate_map(cum_inf_dates,
+                            geodata,
+                            shp,
+                            scenariolabel = config$report$formatting$scenario_labels[2],
+                            display_date = config$report$formatting$display_dates[3],
+                            viridis_palette = "cividis")
+cowplot::plot_grid(ARmap1, ARmap2, ARmap3, ncol=3)
+
+cap <- paste("**Fig.", fig_counter, "** Canton-level map of infections per 10,000 for", config$report$formatting$scenario_labels[2], " strategy.")
+fig_counter <- fig_counter+1
+```
+
+
+<!--
 ```{r plot_threshold1, fig.cap = cap, fig.height = 7}
 plot_event_time_by_geoid(
   hosp_county_peaks = thresholddat,
@@ -306,7 +371,7 @@ plot_event_time_by_geoid(
 cap <- paste("**Fig.", fig_counter, "** Time when COVID-19", bedtype, "occupancy exceeds in-county", bedtype, "bed capacity for", config$report$formatting$scenario_labels[1], "scenario at 1% IFR assumptions. We assume that occupancy is", occup_assum*100, "% over time for non-COVID patients. Points indicate the median and lines indicate the interquartile range of model estimates. Counties which never exceed capacity will have no estimate plotted.")
 fig_counter <- fig_counter+1
 ```
-
+-->
 
 
 ## Appendix 1: Methods
@@ -334,9 +399,9 @@ fig_counter <- fig_counter+1
 
 #### Data Sources
 
-* County-level confirmed SARS-COV-2 infections: [JHU CSSE COVID-19 Data Portal](https://coronavirus.jhu.edu/map.html)
-* County-level `r bedtype` beds: [AHD](https://www.ahd.com/)
-* US Census Bureau 2010 county commuting flows and `r census_year` population data
+* Cantonal-level confirmed SARS-COV-2 infections: [JHU CSSE COVID-19 Data Portal](https://coronavirus.jhu.edu/map.html)
+* Cantonal-level `r bedtype` beds: [AHD](https://www.ahd.com/)
+* US Census Bureau 2010 Cantonal commuting flows and `r census_year` population data
 
 Our model and report make the following key assumptions:
 
@@ -350,9 +415,9 @@ Our model and report make the following key assumptions:
 
 * We assume that `r paste0(config$hospitalization$parameters$p_death_rate * 100, "%")` of all hospitalized patients will die and adjust overall hospitalization rates to match the given IFR for a scenario.
 
-* Hospitalizations admitted to the ICU: `r paste0(config$hospitalization$parameters$p_ICU*100, %)`
+* Hospitalizations admitted to the ICU: `r paste0(config$hospitalization$parameters$p_ICU*100, "%")`
 
-* ICU admissions that are ventilated: `r paste0(config$hospitalization$parameters$p_vent*100, %)`
+* ICU admissions that are ventilated: `r paste0(config$hospitalization$parameters$p_vent*100, "%")`
 
 * ICU occupancy is fixed at 68% over time for non-COVID-related patients for figures related to the time when bed occupancy exceeds capacity.
 
@@ -361,7 +426,7 @@ Our model and report make the following key assumptions:
 
 We used an air importation model in conjunction with the cumulative confirmed COVID case data from [JHU CSSE COVID-19 Data Portal](https://coronavirus.jhu.edu/map.html) and assumptions in recent travel reductions to estimate the number of COVID case importations into major airports located in `r report_loc` and surrounding areas (DC, PA, NJ, MD, VA) from January through March. These importations were used to seed our epidemic model.
 
-If the number of infections in any single county was below the number of confirmed cases reported by the JHU CSSE COVID-19 Data Portal on a given day between February 1 and March 18, the simulation was stopped and removed from the model results. We ran 1000 model simulations from `r print_pretty_date(sim_start_date)` through `r print_pretty_date(sim_end_date)` for each scenario. Some outcomes may be reported beyond the simulation period in order to examine the full disease course for infections occurring at the end of the simulation period.
+If the number of infections in any single Canton was below the number of confirmed cases reported by the JHU CSSE COVID-19 Data Portal on a given day between February 1 and March 18, the simulation was stopped and removed from the model results. We ran 1000 model simulations from `r print_pretty_date(sim_start_date)` through `r print_pretty_date(sim_end_date)` for each scenario. Some outcomes may be reported beyond the simulation period in order to examine the full disease course for infections occurring at the end of the simulation period.
 
 
 #### SEIR Model
