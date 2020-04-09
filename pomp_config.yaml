@@ -1,0 +1,31 @@
+name: COVID_CH
+setup: data/ch/geodata.csv
+parameters: COVID-pomp/data/parameters.yaml
+timewindow_R0:
+  left: ["2020-03-01", "2020-03-13"]
+  right: ["2020-03-29", "2020-04-03"]
+likelihoods:
+  to_compute:
+    #- d-deltah
+    - c-d-deltah
+  to_plot:
+     - c-d-deltah
+parameters_to_fit:
+  pi2h:
+    upper: .7
+    lower: .3
+    transform: "logit"
+places:
+  - BE
+  - BL
+  - BS
+  - FR
+  - GE
+  - GR
+  - JU
+ # - LU
+  - NE
+  - TI
+  - VD
+  - VS
+  - ZH
