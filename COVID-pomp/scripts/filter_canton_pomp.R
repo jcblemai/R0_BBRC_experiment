@@ -16,7 +16,7 @@ source("COVID-pomp/scripts/utils.R")
 
 option_list = list(
   optparse::make_option(c("-c", "--config"), action="store", default='pomp_config.yaml', type='character', help="path to the config file"),
-  optparse::make_option(c("-p", "--place"), action="store", default='TI', type='character', help="name of place to be run, a Canton abbrv. in CH"),
+  optparse::make_option(c("-p", "--place"), action="store", default='CH', type='character', help="name of place to be run, a Canton abbrv. in CH"),
   optparse::make_option(c("-j", "--jobs"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-n", "--nfilter"), action="store", default=10, type='numeric', help="Number of filtering iterations"),
   optparse::make_option(c("-l", "--likelihood"), action="store", default='c-d-deltah', type='character', help="likelihood to be used for filtering"),
@@ -51,9 +51,10 @@ registerDoSNOW(cl)
 # Filter --------------------------------------------------------------------
 
 best_params <- liks %>%
-  filter(loglik > max(loglik) - 4) %>% 
+  arrange(desc(loglik)) %>% 
+  # filter(loglik > max(loglik) - 4) %>% 
   select(-contains("log")) %>% 
-  slice(1)
+  slice(1:3)
 
 t3 <- system.time({
 filter_dists <- foreach(pari = iter(best_params, "row"),
@@ -80,7 +81,6 @@ filter_dists <- foreach(pari = iter(best_params, "row"),
                         }
 })
 
-
 saveRDS(filter_dists %>% mutate(ShortName = canton), file = filter_filename)
 
 stopCluster(cl)
@@ -100,55 +100,20 @@ filter_stats <- filter_dists %>%
   mutate(date = yearsToDate(time),
          parset = factor(parset))
 
+state_names <- unique(filter_stats$var)
 plot_states <- c("tot_I", "Rt", state_names[str_detect(state_names, "a_|_curr")], "D") 
 
-# repeat for plot
-data_file <- glue("data/ch/cases/covid_19/fallzahlen_kanton_total_csv_v2/COVID19_Fallzahlen_Kanton_{canton}_total.csv")
+# Load data
+data <- read_csv(glue("COVID-pomp/interm/data_{suffix}.csv"))
 
-cases_data <- read_csv(data_file, col_types = cols()) %>% 
-  mutate(cases = c(NA, diff(ncumul_conf)),
-         deaths = c(NA, diff(ncumul_deceased)),
-         cum_deaths = ncumul_deceased,
-         hosp_curr = current_hosp,
-         hosp_incid = new_hosp,
-         discharged = c(ncumul_released[1], diff(ncumul_released)),
-         delta_hosp = c(hosp_curr[1], diff(hosp_curr)),
-         delta_ID = delta_hosp + discharged)
-
-data <- select(cases_data, 
-               date, cases, deaths, cum_deaths, hosp_curr, discharged, delta_hosp, delta_ID) %>% 
-  mutate(hosp_incid = NA)
-
-# Set start date 
-start_date <- with(data, 
-                   min(c(date[which(!is.na(cases))[1]] - 5, 
-                         date[which(!is.na(hosp_curr))[1]] - 8)))#as.Date("2020-02-20")
-start_date <- cases_data$date[1] - 5
-
-end_date <- as.Date("2020-04-08")
-
-# Add rows
-data <- rbind(tibble(date = seq.Date(start_date, min(data$date), by = "1 days")) %>% 
-                cbind(data[1, -1] %>% mutate_all(function(x) x <- NA)) , data)
-
-
-p <- ggplot(filter_stats %>% filter(var %in% plot_states), aes(x = date)) +
+p <- ggplot(filter_stats %>% filter(var %in% plot_states, parset  == 1), aes(x = date)) +
   geom_ribbon(aes(ymin = q025, ymax = q975, fill = parset), alpha = .2) +
   geom_ribbon(aes(ymin = q25, ymax = q75, fill = parset), alpha = .2) +
-  # geom_line(aes(y = mean)) +
   geom_point(data = data %>%
-               mutate(time = dateToYears(date),
-                      cases = cases / best_params[["epsilon"]][1],
-                      deaths = case_when(is.na(deaths) ~ 0,T ~  deaths),
-                      cum_deaths = cumsum(deaths)) %>%
                rename(
                  a_I = cases,
-                 # a_DU = deaths_icu_incid,
-                 # a_DH = deaths_noicu_incid,
-                 # a_DI = deaths_nohosp_incid,
                  a_H = hosp_incid,
-                 # a_U = icu_incid,
-                 # U_curr = icu_curr,
+                 U_curr = icu_curr,
                  H_curr = hosp_curr,
                  D = cum_deaths,
                  a_D = deaths,
@@ -156,7 +121,7 @@ p <- ggplot(filter_stats %>% filter(var %in% plot_states), aes(x = date)) +
                  a_deltaH = delta_hosp,
                  a_deltaID = delta_ID
                ) %>% 
-               gather(var, value, -time, -date),
+               gather(var, value, -date),
              aes(y = value)) +
   facet_wrap(~var, scales = "free")  +
   theme_bw()
