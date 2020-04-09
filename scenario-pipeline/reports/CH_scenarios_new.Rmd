@@ -253,11 +253,10 @@ Uncertain parameters include the length of the serial interval, R0 and the proba
 
 ```{r sims and data, fig.width=10, fig.height=3.5}
 national_data <- read_csv("reports/national_data.csv") %>% 
-  select(date, cases, current_hosp, ncumul_deceased, current_icu) %>% 
+  select(date, cases, current_hosp, deaths, current_icu) %>% 
   rename(hosp = current_hosp,
-         icu = current_icu,
-         deaths = ncumul_deceased) %>% 
-  mutate(cases = cumsum(cases)) %>% 
+         icu = current_icu) %>% 
+  # mutate(cases = cumsum(cases)) %>%
   select(date, cases, hosp, deaths, icu) %>% 
   gather(var, value, -date) %>% 
   filter(date < "2020-04-08")
