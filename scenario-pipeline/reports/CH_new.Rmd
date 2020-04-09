@@ -36,7 +36,7 @@ library(covidcommon)
 library(report.generation)
 library(kableExtra)
 
-nfiles <- 15 ## set to NULL or the actual number of sim files to include for final report
+nfiles <- 100 ## set to NULL or the actual number of sim files to include for final report
 
 ```
 
@@ -281,32 +281,32 @@ tab_counter <- tab_counter+1
 
 
 ```{r ARmaps1, fig.cap = cap}
-ARmap1 <- plot_geounit_attack_rate_map(cum_inf_dates,
-                            geodata,
-                            shp,
-                            scenariolabel = config$report$formatting$scenario_labels[1],
-                            display_date = config$report$formatting$display_dates[1],
-                            viridis_palette = "plasma",
-                            popnodes = config$spatial_setup$popnodes)
-
-ARmap2 <- plot_geounit_attack_rate_map(cum_inf_dates,
-                            geodata,
-                            shp,
-                            scenariolabel = config$report$formatting$scenario_labels[1],
-                            display_date = config$report$formatting$display_dates[2],
-                            viridis_palette = "viridis",
-                            popnodes = config$spatial_setup$popnodes)
-
-ARmap3 <- plot_geounit_attack_rate_map(cum_inf_dates,
-                            geodata,
-                            shp,
-                            scenariolabel = config$report$formatting$scenario_labels[1],
-                            display_date = config$report$formatting$display_dates[3],
-                            viridis_palette = "cividis")
-cowplot::plot_grid(ARmap1, ARmap2, ARmap3, ncol=3)
-
-cap <- paste("**Fig.", fig_counter, "** Canton-level map of infections per 10,000 for", config$report$formatting$scenario_labels[1], " strategy.")
-fig_counter <- fig_counter+1
+# ARmap1 <- plot_geounit_attack_rate_map(cum_inf_dates,
+#                             geodata,
+#                             shp,
+#                             scenariolabel = config$report$formatting$scenario_labels[1],
+#                             display_date = config$report$formatting$display_dates[1],
+#                             viridis_palette = "plasma",
+#                             popnodes = config$spatial_setup$popnodes)
+# 
+# ARmap2 <- plot_geounit_attack_rate_map(cum_inf_dates,
+#                             geodata,
+#                             shp,
+#                             scenariolabel = config$report$formatting$scenario_labels[1],
+#                             display_date = config$report$formatting$display_dates[2],
+#                             viridis_palette = "viridis",
+#                             popnodes = config$spatial_setup$popnodes)
+# 
+# ARmap3 <- plot_geounit_attack_rate_map(cum_inf_dates,
+#                             geodata,
+#                             shp,
+#                             scenariolabel = config$report$formatting$scenario_labels[1],
+#                             display_date = config$report$formatting$display_dates[3],
+#                             viridis_palette = "cividis")
+# cowplot::plot_grid(ARmap1, ARmap2, ARmap3, ncol=3)
+# 
+# cap <- paste("**Fig.", fig_counter, "** Canton-level map of infections per 10,000 for", config$report$formatting$scenario_labels[1], " strategy.")
+# fig_counter <- fig_counter+1
 ```
 
 ### Scenario 2: Current Measures stopped May 31
@@ -325,34 +325,77 @@ tab_counter <- tab_counter+1
 
 
 ```{r ARmaps2, fig.cap = cap}
-ARmap1 <- plot_geounit_attack_rate_map(cum_inf_dates,
-                            geodata,
-                            shp,
-                            scenariolabel = config$report$formatting$scenario_labels[2],
-                            display_date = config$report$formatting$display_dates[2],
-                            viridis_palette = "plasma",
-                            popnodes = config$spatial_setup$popnodes)
-
-ARmap2 <- plot_geounit_attack_rate_map(cum_inf_dates,
-                            geodata,
-                            shp,
-                            scenariolabel = config$report$formatting$scenario_labels[2],
-                            display_date = config$report$formatting$display_dates[2],
-                            viridis_palette = "viridis",
-                            popnodes = config$spatial_setup$popnodes)
-
-ARmap3 <- plot_geounit_attack_rate_map(cum_inf_dates,
-                            geodata,
-                            shp,
-                            scenariolabel = config$report$formatting$scenario_labels[2],
-                            display_date = config$report$formatting$display_dates[3],
-                            viridis_palette = "cividis")
-cowplot::plot_grid(ARmap1, ARmap2, ARmap3, ncol=3)
-
-cap <- paste("**Fig.", fig_counter, "** Canton-level map of infections per 10,000 for", config$report$formatting$scenario_labels[2], " strategy.")
-fig_counter <- fig_counter+1
+# ARmap1 <- plot_geounit_attack_rate_map(cum_inf_dates,
+#                             geodata,
+#                             shp,
+#                             scenariolabel = config$report$formatting$scenario_labels[2],
+#                             display_date = config$report$formatting$display_dates[1],
+#                             viridis_palette = "plasma",
+#                             popnodes = config$spatial_setup$popnodes)
+# 
+# ARmap2 <- plot_geounit_attack_rate_map(cum_inf_dates,
+#                             geodata,
+#                             shp,
+#                             scenariolabel = config$report$formatting$scenario_labels[2],
+#                             display_date = config$report$formatting$display_dates[2],
+#                             viridis_palette = "viridis",
+#                             popnodes = config$spatial_setup$popnodes)
+# 
+# ARmap3 <- plot_geounit_attack_rate_map(cum_inf_dates,
+#                             geodata,
+#                             shp,
+#                             scenariolabel = config$report$formatting$scenario_labels[2],
+#                             display_date = config$report$formatting$display_dates[3],
+#                             viridis_palette = "cividis")
+# cowplot::plot_grid(ARmap1, ARmap2, ARmap3, ncol=3)
+# 
+# cap <- paste("**Fig.", fig_counter, "** Canton-level map of infections per 10,000 for", config$report$formatting$scenario_labels[2], " strategy.")
+# fig_counter <- fig_counter+1
 ```
 
+### Scenario 3: Test and Isolate
+
+`r paste("**Tab.", tab_counter, "** State-level summary for", config$report$formatting$scenario_labels[3], "scenario reported for the period from", sim_start_date, "through the dates specified by the column headers.")`
+
+```{r scn_state_table3}
+make_scn_state_table(config$report$formatting$scenario_labels[3],
+                     state_hosp_totals,
+                     table_dates = config$report$formatting$display_dates,
+                     pdeath_labels = config$report$formatting$pdeath_labels,
+                     pdeath_filecode = config$hospitalization$parameters$p_death)
+
+tab_counter <- tab_counter+1
+```
+
+
+```{r ARmaps3, fig.cap = cap}
+# ARmap1 <- plot_geounit_attack_rate_map(cum_inf_dates,
+#                             geodata,
+#                             shp,
+#                             scenariolabel = config$report$formatting$scenario_labels[3],
+#                             display_date = config$report$formatting$display_dates[1],
+#                             viridis_palette = "plasma",
+#                             popnodes = config$spatial_setup$popnodes)
+# 
+# ARmap2 <- plot_geounit_attack_rate_map(cum_inf_dates,
+#                             geodata,
+#                             shp,
+#                             scenariolabel = config$report$formatting$scenario_labels[3],
+#                             display_date = config$report$formatting$display_dates[2],
+#                             viridis_palette = "viridis",
+#                             popnodes = config$spatial_setup$popnodes)
+# 
+# ARmap3 <- plot_geounit_attack_rate_map(cum_inf_dates,
+#                             geodata,
+#                             shp,
+#                             scenariolabel = config$report$formatting$scenario_labels[3],
+#                             display_date = config$report$formatting$display_dates[3],
+#                             viridis_palette = "cividis")
+# cowplot::plot_grid(ARmap1, ARmap2, ARmap3, ncol=3)
+# 
+# cap <- paste("**Fig.", fig_counter, "** Canton-level map of infections per 10,000 for", config$report$formatting$scenario_labels[3], " strategy.")
+# fig_counter <- fig_counter+1
+```
 
 <!--
 ```{r plot_threshold1, fig.cap = cap, fig.height = 7}
