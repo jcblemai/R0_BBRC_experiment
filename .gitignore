@@ -22,7 +22,7 @@
 */results/figs/*.png
 # RStudio files
 .Rproj.user/
-
+scenario-pipeline/COVIDScenarioPipeline
 # produced vignettes
 vignettes/*.html
 vignettes/*.pdf
