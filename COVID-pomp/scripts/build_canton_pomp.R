@@ -18,7 +18,7 @@ option_list = list(
   optparse::make_option(c("-c", "--config"), action="store", default='pomp_config.yaml', type='character', help="path to the config file"),
   optparse::make_option(c("-j", "--jobs"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-r", "--run_level"), action="store", default=1, type='numeric', help="run level for MIF"),
-  optparse::make_option(c("-p", "--place"), action="store", default='TI', type='character', help="name of place to be run, a Canton abbrv. in CH"),
+  optparse::make_option(c("-p", "--place"), action="store", default='CH', type='character', help="name of place to be run, a Canton abbrv. in CH"),
   optparse::make_option(c("-l", "--likelihood"), action="store", default='c-d-deltah', type='character', help="likelihood to be used for filtering"),
   optparse::make_option(c("-w", "--downweight"), action="store", default=0, type='numeric', help="downweight ikelihood to be used for filtering")
 )
@@ -87,7 +87,11 @@ params <- set_names(rep(0, length(param_names)), param_names)
 input_params <- unlist(yaml::read_yaml(config$parameters))
 params[param_fixed_names] <- as.numeric(input_params[param_fixed_names])
 
-params["pop"] <- geodata$pop2018[geodata$ShortName == canton]
+if (canton == "CH") {
+  params["pop"] <- sum(geodata$pop2018, na.rm = T)
+} else {
+  params["pop"] <- geodata$pop2018[geodata$ShortName == canton]
+}
 
 # Initialize the parameters to estimate (just initial guesses)
 params["std_W"] <- 0#1e-4
