@@ -107,8 +107,8 @@ for (cnt in places$ShortName) {
 }
 
 # Plot to check
-as_tibble(t(NPI)) %>%
-  mutate(date = dates) %>%
-  gather(canton, value, -date) %>%
-  ggplot(aes(x = date, y = value, col = canton)) +
-  geom_line()
+# as_tibble(t(NPI)) %>%
+#   mutate(date = dates) %>%
+#   gather(canton, value, -date) %>%
+#   ggplot(aes(x = date, y = value, col = canton)) +
+#   geom_line()
