@@ -278,7 +278,7 @@ We estimate four parameters to available cantonal level data (Table 1). The main
 
 ```{r params, echo=FALSE, message=FALSE, warning=FALSE}
 library(yaml)
-params <- as.data.frame(yaml::read_yaml("../COVID-pomp/data/parameters.yaml"))
+parameters <- as.data.frame(yaml::read_yaml("../COVID-pomp/data/parameters.yaml"))
 ncomps <- tribble(
   ~parameter, ~ncomp,
   "e2i", 1,
@@ -325,7 +325,7 @@ formatParams <- function(vec) {
   data.frame(type = ptype, parameter = pstr, value = pval, comment = comment)
 }
 
-gather(params, parameter, value) %>% 
+gather(parameters, parameter, value) %>% 
   left_join(ncomps) %>% 
   apply(1, formatParams) %>%
   bind_rows() %>% 

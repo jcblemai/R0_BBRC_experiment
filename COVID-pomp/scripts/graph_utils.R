@@ -19,7 +19,7 @@ getStates <- function(flist, states) {
                  .combine = rbind,
                  .packages = c("dplyr", "stringr")) %dopar% {
                    ll_comp <- str_split(fres, "_")[[1]] %>% 
-                     .[length(.)] %>% 
+                     .[(length(.)-1)] %>% 
                      str_replace("\\.rds", "")
                    res <- readRDS(fres)
                    dplyr::filter(res, res$var %in% states, parset == 1) %>% 
@@ -48,8 +48,8 @@ make_map_plot <- function(country_data){
 }
 
 singleR0value <- function(value, dates, date_left, date_right) {
-  r0 <- value[dates >= date_left & dates <= date_right & !is.na(value)]
-  return(mean(r0))
+  r0 <- value[dates >= date_left & dates <= date_right & !is.nan(value)]
+  return(mean(r0, na.rm = T))
 } 
 
 computeTimeToOne <- function(value, dates, date_start) {
@@ -57,19 +57,19 @@ computeTimeToOne <- function(value, dates, date_start) {
   if (is.na(t1)) {
     t21 <- NA
   } else {
-    t21 <- as.numeric(difftime(dates[t1], date_start, units = "days"))
+    t21 <- as.numeric(round((dates[t1]-date_start) *365))
   }
   return(t21)
 }
 
 computeR0Reduction <- function(filter_data, tw_left, tw_right, date_start) {
   filter_data %>% 
-    mutate(date = yearsToDate(time)) %>% 
+    mutate(date = yearsToDate(time)) %>%
     group_by(ShortName, it, ll_comp) %>% 
-    summarise(r0_right = singleR0value(value, date, tw_right[1], tw_right[2]),
-              r0_left = singleR0value(value, date, tw_left[1], tw_left[2]),
+    summarise(r0_right = singleR0value(value, time, dateToYears(tw_right[1]), dateToYears(tw_right[2])),
+              r0_left = singleR0value(value, time, dateToYears(tw_left[1]), dateToYears(tw_left[2])),
               r0change = r0_right/r0_left,
-              t1 = computeTimeToOne(value, date, date_start)) %>%
+              t1 = computeTimeToOne(value, time, dateToYears(date_start))) %>%
     group_by(ShortName, ll_comp) %>%
     mutate(t1frac = sum(!is.na(t1))/n()) %>% 
     ungroup() %>% 

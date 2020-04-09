@@ -12,7 +12,7 @@ option_list = list(
   optparse::make_option(c("-c", "--config"), action="store", default='pomp_config.yaml', type='character', help="path to the config file")
 )
 opt <- optparse::parse_args(optparse::OptionParser(option_list=option_list))
-config <- load_config(opt$c)
+config <- covidcommon::load_config(opt$c)
 
 param_suffix <- ifelse(is.null(config$parameters_to_fit), '', str_c(names(config$parameters_to_fit), collapse = '-'))
 places_to_analyze <- config$places
@@ -28,7 +28,7 @@ geodata <- read.csv("data/ch/geodata.csv")
   # grep(param_suffix, ., value = T)
 
 # places <- str_extract(files_filter, "(?<=CH_)[A-Z]{2}(?=_)")
-country <- st_read("data/ch/shp/swissBOUNDARIES3D_1_3_TLM_KANTONSGEBIET.shp")
+country <- st_read("data/ch/shp/ch.shp")
 
 for (i in seq(nrow(country))) {
   country$ShortName[i] <- lapply(geodata['ShortName'][geodata$CantonNumber == country$KANTONSNUM[i],], as.character) # TODO hardcoded
@@ -40,13 +40,13 @@ ffilter <- list.files(path = "COVID-pomp/results/", pattern = "filtered_", full.
 
 # Get results
 states_to_plot <- c("tot_I", "Rt", "D", "H_curr", "U_curr")
-sims <- getStates(ffilter, states_to_plot)
+sims <- getStates(ffilter, states_to_plot) %>% filter(ll_comp == "c-d-deltah", !is.na(value))
 # Extract statistics
-filterstats <- computeFilterStats(sims)
+filterstats <- computeFilterStats(sims)  %>% filter( !is.nan(mean))
 r0_reduction <- computeR0Reduction(filter(sims, var == "Rt"), 
                                    tw_left = tw_left, 
                                    tw_right = tw_right,
-                                   date_start = "2020-03-15")
+                                   date_start = as.Date("2020-03-15"))
 
 saveRDS(filterstats, file = "COVID-pomp/results/filtered_states_all.rds")
 saveRDS(r0_reduction, file = "COVID-pomp/results/R0_reduction.rds")
