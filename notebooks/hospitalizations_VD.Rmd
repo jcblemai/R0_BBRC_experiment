@@ -49,7 +49,7 @@ hosp_data <- read_csv("../data/vd/hospitalization_data_full_20200408.csv") %>%
   mutate_at(vars(contains("time_")), as.numeric)
 
 # Cantonal data
-cantonal_data <- read_csv("../data/ch/cases/COVID19_Fallzahlen_Kanton_VD_total.csv") %>% 
+cantonal_data <- read_csv("../data/ch/covid_19/fallzahlen_kanton_total_csv/COVID19_Fallzahlen_Kanton_VD_total.csv") %>% 
   mutate(cases_incidence =  c(ncumul_conf[1], diff(ncumul_conf)),
          deaths_incidence = c(ncumul_deceased[1], diff(ncumul_deceased)),
          cases_cumul = ncumul_conf,

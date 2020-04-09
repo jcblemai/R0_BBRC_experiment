@@ -1,0 +1,9 @@
+Parameter,Value,Source
+Generation time,6.5 to 8.2 days,IDD@JHU analysis of reported cases
+Basic reproduction number R0,1.8 to 3.3,Multiple
+Reproduction number with current measures,0.45 to 1.71,Multiple
+Duration of hospitalization,6.8 days ,VD data
+Duration of ICU stay,6.3 days,VD data
+Proportion of ICU cases among hospitalized patients,20%,VD data
+Ratio death / hospitalization ,10%,VD data
+Ratio hospital death / total death,0.66,VD data
