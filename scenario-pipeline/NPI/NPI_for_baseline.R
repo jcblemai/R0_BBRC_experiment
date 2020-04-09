@@ -1,6 +1,7 @@
 library(dplyr)
-
-if (T) {         # or whatever values you use to test.
+library(readr)
+library(stringr)
+if (F) {         # or whatever values you use to test.
   ti_str <- '2020-01-31'
   tf_str <- '2020-08-31'
   foldername <- 'data/ch/'
@@ -16,7 +17,7 @@ getSd <- function(mu, q025, q975) {
 
 # Percent of baseline for TestIsolate
 rfrac_testisolate <- 0.7
-
+print(getwd())
 # Observed reductions
 r0_reduction <- read_csv(paste0(foldername, "r0_reduction.csv"))
 
@@ -72,13 +73,13 @@ for (cnt in places$ShortName) {
     
     # HERER IS THE DIFFERENCE BETWEEN SCENARIOS
     # release_rval is the value after releasing measures
-    if (setupname == "Current") {
+    if (grepl("Current", setupname)) {
       # In Current keep R0 value same to during measures
       release_rval <- rval_r
-    } else if (setupname == "Stopped") {
+    } else if (grepl("Stopped", setupname)) {
       # In Stopped go back to value similar to before measures
       release_rval <- truncnorm::rtruncnorm(n = 1, a = 0, b = 3.5, mean = mul, sd = sdl)
-    } else if (setupname == "TestIsolate") {
+    } else if (grepl("TestIsolate", setupname)) {
       # In contact tracing ?
       release_rval <- truncnorm::rtruncnorm(n = 1, a = 0, b = 3.5, mean = mul * rfrac_testisolate, sd = sdl)
     }
@@ -90,15 +91,15 @@ for (cnt in places$ShortName) {
     
     # HERER IS THE DIFFERENCE BETWEEN SCENARIOS
     #    # HERER IS THE DIFFERENCE BETWEEN SCENARIOS
-    if (setupname == "Current") {
+  
+    if (grepl("Current", setupname)) {
       release_rval <- rval_r
-    } else if (setupname == "Stopped") {
+    } else if (grepl("Stopped", setupname)) {
       release_rval <- truncnorm::rtruncnorm(n = 1, a = 0, b = 3.5, mean = left_R0_mean, sd = left_R0_sd)
-    } else if (setupname == "TestIsolate") {
+    } else if (grepl("TestIsolate", setupname)) {
       release_rval <- truncnorm::rtruncnorm(n = 1, a = 0, b = 3.5, mean = left_R0_mean * rfrac_testisolate, sd = left_R0_sd)
     }
   }
-  
   # Release value
   NPI[cnt, release_dates] <- release_rval
   # Transitions
