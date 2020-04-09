@@ -252,13 +252,15 @@ We use simple statistical models using the cumulative distribution of times to h
 Uncertain parameters include the length of the serial interval, R0 and the probability of hospitalization. Simulated time series of incidence and hospitalizations are based on 30’000 random draws from reasonable bounds of the parameter values (Table 1). Simulated trajectories are then resampled based on the degree to which they match the observed time series of cumulative hospitalizations, which gives a set of simulations which represent well the observed data.
 
 ```{r sims and data, fig.width=10, fig.height=3.5}
-national_data <- read_csv("../data/ch/cases/covid_19/fallzahlen_kanton_total_csv_v2/COVID19_Fallzahlen_Kanton_CH_total.csv") %>% 
-  rename(cases = ncumul_conf,
-         hosp = current_hosp,
-         deaths = ncumul_deceased,
-         icu = current_icu) %>% 
+national_data <- read_csv("reports/national_data.csv") %>% 
+  select(date, cases, current_hosp, ncumul_deceased, current_icu) %>% 
+  rename(hosp = current_hosp,
+         icu = current_icu,
+         deaths = ncumul_deceased) %>% 
+  mutate(cases = cumsum(cases)) %>% 
   select(date, cases, hosp, deaths, icu) %>% 
-  gather(var, value, -date)
+  gather(var, value, -date) %>% 
+  filter(date < "2020-04-08")
 
 quantiles_sims <- computeQuantiles(filter(state_hosp_totals, scenario_num == 1))
 
