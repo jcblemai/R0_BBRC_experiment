@@ -75,7 +75,10 @@ infect_period <- c(1/as.numeric(config$seir$parameters$gamma$high), 1/as.numeric
 R0_range <- c(config$seir$parameters$R0s$low, config$seir$parameters$R0s$high)
 release_date <- as.Date(config$interventions$settings$Stopped$period_start_date)
 time_horizons <- as.Date(config$report$formatting$display_dates)
-icu_threshs <- config$report$formatting$icu_threshs
+
+icu_threshs <- c(500, 1e3, 2e3)
+time_cut <- as.Date("2020-04-08")
+
 Sys.setlocale("LC_TIME", "C")
 ```
 
@@ -204,6 +207,7 @@ ggplot(icu_exceed, aes(x = time, y = exceed_frac * 100, color = icu_thresh)) +
   guides(color = guide_legend(title = "ICU capacity"))
 
 capicu <- paste0("**Fig. ", fig_counter, "**: Probability of exceedence of ICU capacity threholds for ", scen_desc_str, ".")
+fig_counter <- fig_counter + 1
 ```
 
 ### Contributors
@@ -246,6 +250,25 @@ We built a stochastic, Susceptible-Exposed-Infected-Recovered (SEIR) model of SA
 We use simple statistical models using the cumulative distribution of times to hospitalization, ICU admission, and death, as well as the durations of hospitalization and ICU stay to calculate the number of incident and cumulative hospitalizations and ICU admissions and deaths per day, accounting for appropriate delays since infection and symptom onset.
 
 Uncertain parameters include the length of the serial interval, R0 and the probability of hospitalization. Simulated time series of incidence and hospitalizations are based on 30’000 random draws from reasonable bounds of the parameter values (Table 1). Simulated trajectories are then resampled based on the degree to which they match the observed time series of cumulative hospitalizations, which gives a set of simulations which represent well the observed data.
+
+```{r sims and data, fig.width=10, fig.height=3.5}
+national_data <- read_csv("../data/ch/cases/covid_19/fallzahlen_kanton_total_csv_v2/COVID19_Fallzahlen_Kanton_CH_total.csv") %>% 
+  rename(cases = ncumul_conf,
+         hosp = current_hosp,
+         deaths = ncumul_deceased,
+         icu = current_icu) %>% 
+  select(date, cases, hosp, deaths, icu) %>% 
+  gather(var, value, -date)
+
+quantiles_sims <- computeQuantiles(filter(state_hosp_totals, scenario_num == 1))
+
+make_combined_plot(quantiles_sims, national_data, time_cut, nrow =1)
+
+capdata <- paste0("**Fig. ", fig_counter, "**: Simulation envelops of current scenario up to April 8th.")
+fig_counter <- fig_counter + 1
+```
+
+
 
 ### Key Sources
 

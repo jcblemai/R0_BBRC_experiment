@@ -54,7 +54,7 @@ computeProbExceedence <- function(df, icu_thresh) {
                            }
                    
                  }
-  
+  parallel::stopCluster(cl)
   return(res)
 }
 
@@ -151,9 +151,9 @@ printTable <- function(df, scenario, tabnum = 1, col_headers, var_dict, time_hor
 # Time series ----------------------------------------------------------------
 make_combined_plot <- function(df, data, timecut = Inf, nrow = 2) {
   cval <- c("#1C86EE", "#EE2C2C", "#8A2BE2", "#EEAD0E")
-  lab_dict <- c("cases" = "Case incidence",
+  lab_dict <- c("cases" = "Cumulative incidence",
                 "hosp" = "Current hospitalizations",
-                "deaths" = "Death incidence",
+                "deaths" = "Cumulative deaths",
                 "icu" = "Current ICUs")
   ggplot() +
     geom_ribbon(data = filter(df, time < timecut),
@@ -162,7 +162,7 @@ make_combined_plot <- function(df, data, timecut = Inf, nrow = 2) {
                 aes(x = time, ymin = q25, ymax = q75, fill = var), alpha = .5) +
     geom_point(data = data, aes(x = date, y = value), size = .5) +
     facet_wrap(var~., scales = "free_y", labeller = labeller(var = lab_dict), nrow = nrow) +
-    theme_minimal() +
+    theme_bw() +
     scale_color_manual(values = cval) +
     scale_fill_manual(values = cval) +
     guides(fill = "none", color = "none") + 
