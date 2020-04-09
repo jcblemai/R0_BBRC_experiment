@@ -33,8 +33,8 @@ right_R0_sd <- getSd(right_R0_mean, right_R0_range[1], right_R0_range[2])
 # Assume reduction on the 20th of March
 start_descent <- as.Date("2020-03-15")
 end_descent <- as.Date("2020-03-22")
-start_ascent <- as.Date("2020-04-19")
-end_ascent <- as.Date("2020-04-23")
+start_ascent <- as.Date("2020-05-01")
+end_ascent <- as.Date("2020-05-03")
 
 places <- read_csv(paste0(foldername,'geodata.csv'))
 dates <- seq.Date(as.Date(ti_str), as.Date(tf_str), 1)
