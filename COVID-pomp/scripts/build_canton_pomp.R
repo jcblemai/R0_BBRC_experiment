@@ -18,7 +18,7 @@ option_list = list(
   optparse::make_option(c("-c", "--config"), action="store", default='pomp_config.yaml', type='character', help="path to the config file"),
   optparse::make_option(c("-j", "--jobs"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-r", "--run_level"), action="store", default=1, type='numeric', help="run level for MIF"),
-  optparse::make_option(c("-p", "--place"), action="store", default='TI', type='character', help="name of place to be run, a Canton abbrv. in CH"),
+  optparse::make_option(c("-p", "--place"), action="store", default='CH', type='character', help="name of place to be run, a Canton abbrv. in CH"),
   optparse::make_option(c("-l", "--likelihood"), action="store", default='c-d-deltah', type='character', help="likelihood to be used for filtering"),
   optparse::make_option(c("-w", "--downweight"), action="store", default=0, type='numeric', help="downweight ikelihood to be used for filtering")
 )
@@ -42,22 +42,45 @@ downweight <- opt$downweight
 ll_cases <- "c" %in% lik_components
 suffix <- buildSuffix(config$name, canton, lik_components, config$parameters_to_fit)
 
+
+# Level of detail on which to run the computations
+run_level <- opt$run_level
+sir_Np <- c(1e3, 3e3, 3e3)
+sir_Nmif <- c(2, 20, 100)
+sir_Ninit_param <- c(opt$jobs/2, opt$jobs, opt$jobs*2)
+sir_NpLL <- c(1e3, 1e4, 1e4)
+sir_Nreps_global <- c(2, 5, 10)
+
+
 # Data ---------------------------------------------------------------
 
 data_file <- glue("data/ch/cases/covid_19/fallzahlen_kanton_total_csv_v2/COVID19_Fallzahlen_Kanton_{canton}_total.csv")
 
 cases_data <- read_csv(data_file, col_types = cols()) %>% 
+  filter(date < "2020-04-08") %>%
   mutate(cases = c(NA, diff(ncumul_conf)),
          deaths = c(NA, diff(ncumul_deceased)),
          cum_deaths = ncumul_deceased,
          hosp_incid = new_hosp,
+         icu_curr = current_icu,
          hosp_curr = current_hosp,
          discharged = c(ncumul_released[1], diff(ncumul_released)),
          delta_hosp = c(hosp_curr[1], diff(hosp_curr)),
          delta_ID = delta_hosp + discharged)
 
+cases_data$cases[cases_data$cases < 0] <- NA
+
+if (canton == "CH") {
+  cases_data$delta_ID <- NA
+  cases_ofsp <- read_csv("data/ch/cases_CH.csv") %>% 
+    mutate(date = as.Date(date, format = "%m/%d/%Y"))
+  cases_data <- select(cases_data, -cases) %>% 
+    left_join(cases_ofsp)
+}
+
 data <- select(cases_data, 
-               date, cases, deaths, hosp_incid, cum_deaths, hosp_curr, discharged, delta_hosp, delta_ID)
+               date, cases, deaths, hosp_incid, cum_deaths, 
+               hosp_curr, icu_curr, discharged, delta_hosp, delta_ID)
 
 # Set start date 
 start_date <- with(data, 
@@ -73,9 +96,10 @@ data <- rbind(tibble(date = seq.Date(start_date, min(data$date), by = "1 days"))
 
 data <- data %>% complete(date = seq.Date(start_date,end_date, by="day"))
 
+write_csv(data, glue("COVID-pomp/interm/data_{suffix}.csv"))
 
 # Build pomp object -------------------------------------------------------
-source("COVID-pomp/scripts/pomp_skeleton.R")
+source("COVID-pomp/scripts/pomp_skeleton_v2.R")
 
 # Start and end dates of epidemic
 t_start <- dateToYears(start_date)
@@ -87,7 +111,11 @@ params <- set_names(rep(0, length(param_names)), param_names)
 input_params <- unlist(yaml::read_yaml(config$parameters))
 params[param_fixed_names] <- as.numeric(input_params[param_fixed_names])
 
-params["pop"] <- geodata$pop2018[geodata$ShortName == canton]
+if (canton == "CH") {
+  params["pop"] <- sum(geodata$pop2018, na.rm = T)
+} else {
+  params["pop"] <- geodata$pop2018[geodata$ShortName == canton]
+}
 
 # Initialize the parameters to estimate (just initial guesses)
 params["std_W"] <- 0#1e-4
@@ -120,7 +148,12 @@ for (par in seq_along(config$parameters_to_fit)) {
   } 
 }
 
-  
+# Time before which we constrain R0
+tvary <- dateToYears(as.Date(config$tvary))
+# Hospitalized CFR
+hcfr <- (1- params["pi2hs"]) * (params["ph2u"] * params["pu2d"] + 1 - params["ph2u"])
+sdfrac <- config$sdfrac
+
 covid <- pomp(
   # set data
   data = data_pomp, 
@@ -146,7 +179,10 @@ covid <- pomp(
   rinit = init.Csnippet,
   partrans = parameter_trans(log = log_trans, logit = logit_trans),
   # Add density and generation fuctions for Skellam dist
-  globals = str_c(dskellam.C, rskellam.C, sep = "\n")
+  globals = str_c(dskellam.C, rskellam.C, 
+                  glue("double tvary = {tvary}; \n
+                        double hcfr = {hcfr};\n
+                       double sdfrac = {sdfrac};"), sep = "\n")
 )
 
 save(covid, file = glue("COVID-pomp/interm/pomp_{suffix}.rda"))
@@ -161,13 +197,6 @@ cat("************ \nFITTING:", canton, "with likelihood:", opt$likelihood, "\n**
 ll_filename <- glue("COVID-pomp/results/loglik_exploration_{suffix}.csv")
 mif_filename <- glue("COVID-pomp/results/mif_sir_sde_{suffix}.rda")
 
-# Level of detail on which to run the computations
-run_level <- opt$run_level
-sir_Np <- c(1e3, 3e3, 4e3)
-sir_Nmif <- c(2, 20, 200)
-sir_Ninit_param <- c(opt$jobs/2, opt$jobs,opt$jobs)
-sir_NpLL <- c(1e3, 1e4, 1e4)
-sir_Nreps_global <- c(2, 5, 10)
 
 # parallel computations
 cl <- makeCluster(opt$jobs)

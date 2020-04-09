@@ -19,7 +19,7 @@ us2r: 0.266
 # probability of severe symptoms (VD data)
 psevere: 0.20
 # probability of death|!hospitalization
-pi2d: 0.10
+#pi2d: 0.10
 # probability of hospitalization (VD data)
 pi2h: 0.55
 # probability of discharge,!ICU|hospitalization
