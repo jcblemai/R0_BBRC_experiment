@@ -19,8 +19,9 @@ option_list = list(
   optparse::make_option(c("-p", "--place"), action="store", default='TI', type='character', help="name of place to be run, a Canton abbrv. in CH"),
   optparse::make_option(c("-j", "--jobs"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-n", "--nfilter"), action="store", default=10, type='numeric', help="Number of filtering iterations"),
-  optparse::make_option(c("-l", "--likelihood"), action="store", default='c-d-deltah', type='character', help="likelihood to be used for filtering")
-)
+  optparse::make_option(c("-l", "--likelihood"), action="store", default='c-d-deltah', type='character', help="likelihood to be used for filtering"),
+  optparse::make_option(c("-w", "--downweight"), action="store", default=0, type='numeric', help="downweight ikelihood to be used for filtering")
+  )
 opt <- optparse::parse_args(optparse::OptionParser(option_list=option_list))
 config <- load_config(opt$c)
 
@@ -34,9 +35,11 @@ canton <- opt$place
 lik_components <- str_split(opt$likelihood, "-")[[1]]#c("deltah", "c", "d")
 lik_log <- str_c(str_c("ll_", lik_components), collapse = "+")
 lik <- str_c(str_c("ll_", lik_components), collapse = "*")
+downweight <- opt$downweight
 # Test for cases in the likelihood
 ll_cases <- "c" %in% lik_components
-suffix <- glue("{config$name}_{canton}_{str_c(lik_components, collapse = '-')}_{ifelse(is.null(config$parameters_to_fit), '', str_c(names(config$parameters_to_fit), collapse = '-'))}")
+param_suffix <- ifelse(is.null(config$parameters_to_fit), '', str_c(names(config$parameters_to_fit), collapse = '-'))
+suffix <- glue("{config$name}_{canton}_{str_c(c(lik_components, downweight), collapse = '-')}_{param_suffix}")
 
 filter_filename <- glue("COVID-pomp/results/filtered_{suffix}.rds")
 
