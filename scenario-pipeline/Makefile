@@ -10,44 +10,44 @@ CONFIG=config.yml
 
 .files:
 	mkdir $@
-report: .files/1000_simulation_Current .files/1000_hospitalization_Current_low .files/1000_hospitalization_Current_med .files/1000_hospitalization_Current_high .files/1000_simulation_Stopped .files/1000_hospitalization_Stopped_low .files/1000_hospitalization_Stopped_med .files/1000_hospitalization_Stopped_high .files/1000_simulation_TestIsolate .files/1000_hospitalization_TestIsolate_low .files/1000_hospitalization_TestIsolate_med .files/1000_hospitalization_TestIsolate_high
+report:  .files/100_hospitalization_Current_low .files/100_hospitalization_Current_med .files/100_hospitalization_Current_high .files/100_hospitalization_Stopped_low .files/100_hospitalization_Stopped_med .files/100_hospitalization_Stopped_high .files/100_hospitalization_TestIsolate_low .files/100_hospitalization_TestIsolate_med .files/100_hospitalization_TestIsolate_high
 	Rscript compile_Rmd.R
-.files/1000_simulation_Current: .files 
-	$(PYTHON) $(PIPELINE)/simulate.py -c $(CONFIG) -s Current -n 1000 -j $(NCOREPER)
-	touch .files/1000_simulation_Current
-.files/1000_hospitalization_Current_low: .files .files/1000_simulation_Current
+.files/100_simulation_Current: .files 
+	$(PYTHON) $(PIPELINE)/simulate.py -c $(CONFIG) -s Current -n 100 -j $(NCOREPER)
+	touch .files/100_simulation_Current
+.files/100_hospitalization_Current_low: .files .files/100_simulation_Current
 	$(RSCRIPT) $(PIPELINE)/R/scripts/hosp_run.R -s Current -d low -j $(NCOREPER) -c $(CONFIG)
-	touch .files/1000_hospitalization_Current_low
-.files/1000_hospitalization_Current_med: .files .files/1000_simulation_Current
+	touch .files/100_hospitalization_Current_low
+.files/100_hospitalization_Current_med: .files .files/100_simulation_Current
 	$(RSCRIPT) $(PIPELINE)/R/scripts/hosp_run.R -s Current -d med -j $(NCOREPER) -c $(CONFIG)
-	touch .files/1000_hospitalization_Current_med
-.files/1000_hospitalization_Current_high: .files .files/1000_simulation_Current
+	touch .files/100_hospitalization_Current_med
+.files/100_hospitalization_Current_high: .files .files/100_simulation_Current
 	$(RSCRIPT) $(PIPELINE)/R/scripts/hosp_run.R -s Current -d high -j $(NCOREPER) -c $(CONFIG)
-	touch .files/1000_hospitalization_Current_high
-.files/1000_simulation_Stopped: .files 
-	$(PYTHON) $(PIPELINE)/simulate.py -c $(CONFIG) -s Stopped -n 1000 -j $(NCOREPER)
-	touch .files/1000_simulation_Stopped
-.files/1000_hospitalization_Stopped_low: .files .files/1000_simulation_Stopped
+	touch .files/100_hospitalization_Current_high
+.files/100_simulation_Stopped: .files 
+	$(PYTHON) $(PIPELINE)/simulate.py -c $(CONFIG) -s Stopped -n 100 -j $(NCOREPER)
+	touch .files/100_simulation_Stopped
+.files/100_hospitalization_Stopped_low: .files .files/100_simulation_Stopped
 	$(RSCRIPT) $(PIPELINE)/R/scripts/hosp_run.R -s Stopped -d low -j $(NCOREPER) -c $(CONFIG)
-	touch .files/1000_hospitalization_Stopped_low
-.files/1000_hospitalization_Stopped_med: .files .files/1000_simulation_Stopped
+	touch .files/100_hospitalization_Stopped_low
+.files/100_hospitalization_Stopped_med: .files .files/100_simulation_Stopped
 	$(RSCRIPT) $(PIPELINE)/R/scripts/hosp_run.R -s Stopped -d med -j $(NCOREPER) -c $(CONFIG)
-	touch .files/1000_hospitalization_Stopped_med
-.files/1000_hospitalization_Stopped_high: .files .files/1000_simulation_Stopped
+	touch .files/100_hospitalization_Stopped_med
+.files/100_hospitalization_Stopped_high: .files .files/100_simulation_Stopped
 	$(RSCRIPT) $(PIPELINE)/R/scripts/hosp_run.R -s Stopped -d high -j $(NCOREPER) -c $(CONFIG)
-	touch .files/1000_hospitalization_Stopped_high
-.files/1000_simulation_TestIsolate: .files 
-	$(PYTHON) $(PIPELINE)/simulate.py -c $(CONFIG) -s TestIsolate -n 1000 -j $(NCOREPER)
-	touch .files/1000_simulation_TestIsolate
-.files/1000_hospitalization_TestIsolate_low: .files .files/1000_simulation_TestIsolate
+	touch .files/100_hospitalization_Stopped_high
+.files/100_simulation_TestIsolate: .files 
+	$(PYTHON) $(PIPELINE)/simulate.py -c $(CONFIG) -s TestIsolate -n 100 -j $(NCOREPER)
+	touch .files/100_simulation_TestIsolate
+.files/100_hospitalization_TestIsolate_low: .files .files/100_simulation_TestIsolate
 	$(RSCRIPT) $(PIPELINE)/R/scripts/hosp_run.R -s TestIsolate -d low -j $(NCOREPER) -c $(CONFIG)
-	touch .files/1000_hospitalization_TestIsolate_low
-.files/1000_hospitalization_TestIsolate_med: .files .files/1000_simulation_TestIsolate
+	touch .files/100_hospitalization_TestIsolate_low
+.files/100_hospitalization_TestIsolate_med: .files .files/100_simulation_TestIsolate
 	$(RSCRIPT) $(PIPELINE)/R/scripts/hosp_run.R -s TestIsolate -d med -j $(NCOREPER) -c $(CONFIG)
-	touch .files/1000_hospitalization_TestIsolate_med
-.files/1000_hospitalization_TestIsolate_high: .files .files/1000_simulation_TestIsolate
+	touch .files/100_hospitalization_TestIsolate_med
+.files/100_hospitalization_TestIsolate_high: .files .files/100_simulation_TestIsolate
 	$(RSCRIPT) $(PIPELINE)/R/scripts/hosp_run.R -s TestIsolate -d high -j $(NCOREPER) -c $(CONFIG)
-	touch .files/1000_hospitalization_TestIsolate_high
+	touch .files/100_hospitalization_TestIsolate_high
 
 
 rerun: rerun_simulations rerun_hospitalization
