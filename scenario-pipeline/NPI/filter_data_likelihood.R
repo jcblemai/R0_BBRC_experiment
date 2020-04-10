@@ -64,7 +64,7 @@ ll_data <- foreach(s = unique(state_hosp_totals$usim_num),
   
   inner_join(sim, obs) %>% 
     na.omit() %>% 
-    summarise(ll = logLikCases(obs, sim + 1, k = 5, alpha = 1, "nbinom")) %>% 
+    summarise(ll = logLikCases(obs, sim + 1, k = 1, alpha = 1, "nbinom")) %>% 
     mutate(usim_num = s)
 }
 
