@@ -1,7 +1,7 @@
 library(dplyr)
 library(readr)
 library(stringr)
-if (T) {         # or whatever values you use to test.
+if (F) {         # or whatever values you use to test.
   ti_str <- '2020-01-31'
   tf_str <- '2020-08-31'
   foldername <- '../data/ch/'
