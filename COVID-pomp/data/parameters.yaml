@@ -17,7 +17,7 @@ ud2d: 0.135
 # rate ICU to recovery: fitted to VD data (k=2)
 us2r: 0.266
 # probability of severe symptoms (VD data)
-psevere: 0.20
+psevere: 0.15
 # probability of death|!hospitalization
 #pi2d: 0.10
 # probability of hospitalization (VD data)

@@ -8,28 +8,28 @@ likelihoods:
   to_compute:
     - d-deltah
     - c-d-deltah
-    - d
+   # - d
   to_plot:
      - d-deltah
 tvary: "2020-03-08"
 sdfrac: 0.2
 parameters_to_fit:
-  psevere:
-    upper: .3
-    lower: .05
+  pi2h:
+    upper: .8
+    lower: .2
     transform: "logit"
 places:
   - CH
-  - BE
-  - BL
-  - BS
-  - FR
-  - GE
-  - GR
-  - JU
+#  - BE
+#  - BL
+#  - BS
+#  - FR
+#  - GE
+#  - GR
+#  - JU
   #- LU
-  - NE
-  - TI
-  - VD
-  - VS
-  - ZH
+#  - NE
+#  - TI
+#  - VD
+#  - VS
+#  - ZH

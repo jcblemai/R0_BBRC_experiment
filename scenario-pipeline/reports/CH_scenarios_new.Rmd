@@ -38,7 +38,6 @@ library(report.generation)
 library(kableExtra)
 library(gridExtra)
 source("compute_hosp_stats.R")
-nfiles <- 10 ## set to NULL or the actual number of sim files to include for final report
 
 ```
 
@@ -52,6 +51,7 @@ geodata <- load_geodata_file(file.path(config$spatial_setup$base_path, config$sp
 included_geoids <- geodata$geoid
 
 scn_dirs <- paste(config$name,config$interventions$scenarios,sep='_')
+nfiles <- config$nsimulations ## set to NULL or the actual number of sim files to include for final report
 
 ```
 
@@ -86,7 +86,7 @@ Sys.setlocale("LC_TIME", "C")
 ## Summary 
 
 ### Scenario definition
-This report compares the health impact and surge capacity needs for the COVID-19 epidemic in Canton de Vaud. The underlying model is based on our best understanding of SARS-CoV-2 natural history and transmission, and uses current demographic and epidemiologic data from Vaud and other locations (Table 1). We project the number of hospitalizations, ICU admissions, and deaths in both the short and long term under different public-health intervention scenarios.
+This report compares the health impact and surge capacity needs for the COVID-19 epidemic in Switzerland. The underlying model is based on our best understanding of SARS-CoV-2 natural history and transmission, and uses current demographic and epidemiologic data from Switzerland and other locations (Table 1). We project the number of hospitalizations, ICU admissions, and deaths in both the short and long term under different public-health intervention scenarios.
 
 
 We compared `r nscenarios` intervention scenarios for model simulations from `r print_pretty_date(sim_start_date)` through `r print_pretty_date(sim_end_date)`:
@@ -118,6 +118,13 @@ state_hosp_totals <- load_hosp_geocombined_totals(scn_dirs,
                                                   name_filter = "csv") %>% 
   mutate(pdeath = "", scenario_name = factor(scenario_name, levels = scenario_labels))
 
+# Load resampling file
+resampled_sims <- read_csv("reports/resample_sims.csv")
+
+state_hosp_totals <- state_hosp_totals %>%
+  inner_join(resampled_sims)
+
+state_hosp_totals <- state_hosp_totals %>% select(-sim_num) %>% rename(sim_num = new_sim_num)
 ```
 
 ### Scenario outcomes
@@ -217,6 +224,28 @@ Prepared by Joseph Lemaitre (Ecole Polytechnique Fédérale de Lausanne, EPFL), 
 
 **Contact:** [joseph.lemaitre@epfl.ch](<mailto:joseph.lemaitre@epfl.ch?subject=Hyperlinks>), [jacques.fellay@epfl.ch](<mailto:jacques.fellay@epfl.chh?subject=Hyperlinks>)
 
+## Methods
+
+### Model assumptions
+We built a stochastic, Susceptible-Exposed-Infected-Recovered (SEIR) model of SARS-CoV-2 transmission in canton Vaud.
+
+**Population.** The total population and age distribution were collected from the website of the Swiss Federal Statistical Office. The entire population of the canton is assumed to be susceptible at the beginning of the model. We assume equal risk of infection for all individuals at a given time.
+
+**Initial conditions.** We used the first confirmed cases recorded in Vaud on February 25 to inform the importations that seeded our epidemic model. We assumed that there was a reporting rate of 20% during this period using Poisson draws with a rate parameter five times the cumulative number of cases. Baseline transmissibility in the model is similar to the early days of the Wuhan epidemic (R0 = 2-3.3). 
+
+**Reproductive Number.** The reproductive number R0, or the average number of secondary cases caused by a single infected individual in a susceptible population, varies by scenario. Note that the reproductive number is highly-context specific. There is still uncertainty in the range of possible R0 values for SARS-CoV-2, and varying effectiveness of non-pharmaceutical interventions, including social distancing, improved hand hygiene, and case detection and isolation, may further reduce R0. We here use time-varying estimates of R0 based on our analysis of COVID-19-related deaths, hospitalizations and cases across cantons in Switzerland (for details see the "Inference" section). These estimates capture the decrease in time of R0 linked to the implementation of NPIs starting February 28th in the country. For specific scenarios we assume that R0 returns linearly to either the baseline value (Current Measures Stopped) or a fraction of it (Trace and Isolate) in 1 week. Baseline values of R0 were computed for the period March 3rd-March 10th (see "Inference" section).
+
+**COVID-19 Natural History.** From analysis of 181 confirmed SARS-CoV-2 cases among travelers and other publicly reported cases, we estimate the incubation period, or the time from exposure to symptom onset, to follow an exponential distribution with mean 5.2 days (IQR 1.5, 7.21 days) (Fig. S1). The average duration of infectiousness following symptom onset is between 1.3 days and 3, following an Erlang distribution with 3 compartments. We thus sample across a range of possible mean serial intervals (time from symptom onset of an index case to symptom onset of a secondary case infected by the index) from 6.5 to 8.2 days.
+
+*Rates of Death and Hospitalization.* From our analysis of 391 confirmed SARS-CoV-2 infections in Shenzhen, China, we estimate the average time to hospitalization from symptom onset follows a log-normal distribution with median 3.42 days (IQR 2.01, 5.83) (Fig. 3). Other rates where derived from Vaud canton hospitalization data. We fitted a log normal distribution to the observed distribution of time hopsitalized, time in ICU, time from hospitalization to ICU and time to death. We estimate from current data that, among those hospitalized, 20% will be admitted to the ICU.
+
+**Filtering.** Simulated time series of incidence and hospitalizations are based on 30’000 random draws from reasonable bounds of the parameter values (Table 1). Among these draws, we resample to narrow the set to a simulation that matches the observed reality in hospitalization. Namely, we assign to each simulation a weight that is proportional to the likelihood of incident hospitalizations.
+
+We use simple statistical models using the cumulative distribution of times to hospitalization, ICU admission, and death, as well as the durations of hospitalization and ICU stay to calculate the number of incident and cumulative hospitalizations and ICU admissions and deaths per day, accounting for appropriate delays since infection and symptom onset.
+
+Uncertain parameters include the length of the serial interval, R0 and the probability of hospitalization. Simulated time series of incidence and hospitalizations are based on 30’000 random draws from reasonable bounds of the parameter values (Table 1). Simulated trajectories are then resampled based on the degree to which they match the observed time series of cumulative hospitalizations, which gives a set of simulations which represent well the observed data.
+
+
 ### Limitations
 We note several limitations to our work, among which:
 
@@ -230,26 +259,7 @@ We assume Re, the effective reproductive number, to be constant in each scenario
 We do not explicitly model the role of asymptomatic infection when calculating the number of expected hospitalizations. All infectious individuals are considered at risk of hospitalization, though some may recover or die prior to hospitalization. A substantial asymptomatic burden may reduce the number of hospitalized cases.
 
 
-## Methods
 
-### Model assumptions
-We built a stochastic, Susceptible-Exposed-Infected-Recovered (SEIR) model of SARS-CoV-2 transmission in canton Vaud.
-
-*Population.* The total population and age distribution were collected from the website of the Swiss Federal Statistical Office. The entire population of the canton is assumed to be susceptible at the beginning of the model. We assume equal risk of infection for all individuals at a given time.
-
-*Initial conditions.* We used the first confirmed cases recorded in Vaud on February 25 to inform the importations that seeded our epidemic model. We assumed that there was a reporting rate of 20% during this period using Poisson draws with a rate parameter five times the cumulative number of cases. Baseline transmissibility in the model is similar to the early days of the Wuhan epidemic (R0 = 2-3.3). 
-
-*Reproductive Number.* The reproductive number R0, or the average number of secondary cases caused by a single infected individual in a susceptible population, varies by scenario. Note that the reproductive number is highly-context specific. There is still uncertainty in the range of possible R0 values for SARS-CoV-2, and varying effectiveness of non-pharmaceutical interventions, including social distancing, improved hand hygiene, and case detection and isolation, may further reduce R0.
-
-*COVID-19 Natural History.* From analysis of 181 confirmed SARS-CoV-2 cases among travelers and other publicly reported cases, we estimate the incubation period, or the time from exposure to symptom onset, to follow an exponential distribution with mean 5.2 days (IQR 1.5, 7.21 days) (Fig. S1). The average duration of infectiousness following symptom onset is between 1.3 days and 3, following an Erlang distribution with 3 compartments. We thus sample across a range of possible mean serial intervals (time from symptom onset of an index case to symptom onset of a secondary case infected by the index) from 6.5 to 8.2 days.
-
-*Rates of Death and Hospitalization.* From our analysis of 391 confirmed SARS-CoV-2 infections in Shenzhen, China, we estimate the average time to hospitalization from symptom onset follows a log-normal distribution with median 3.42 days (IQR 2.01, 5.83) (Fig. 3). Other rates where derived from CHUV and Vaud hospitalization data. We fitted a log normal distribution to the observed distribution of time hopsitalized, time in ICU, time from hospitalization to ICU and time to death. We estimate from current data that, among those hospitalized, 20% will be admitted to the ICU.
-
-*Filtering.* Simulated time series of incidence and hospitalizations are based on 30’000 random draws from reasonable bounds of the parameter values (Table 1). Among  these draws, we resample to narrow the set to a simulation that matches the observed reality in hospitalization. Namely, we assign to each simulation a weight that is proportional to the likelihood w.r.t  the incident hospitalization.
-
-We use simple statistical models using the cumulative distribution of times to hospitalization, ICU admission, and death, as well as the durations of hospitalization and ICU stay to calculate the number of incident and cumulative hospitalizations and ICU admissions and deaths per day, accounting for appropriate delays since infection and symptom onset.
-
-Uncertain parameters include the length of the serial interval, R0 and the probability of hospitalization. Simulated time series of incidence and hospitalizations are based on 30’000 random draws from reasonable bounds of the parameter values (Table 1). Simulated trajectories are then resampled based on the degree to which they match the observed time series of cumulative hospitalizations, which gives a set of simulations which represent well the observed data.
 
 ```{r sims and data, fig.width=10, fig.height=3.5}
 national_data <- read_csv("reports/national_data.csv") %>% 
@@ -273,7 +283,9 @@ fig_counter <- fig_counter + 1
 
 ### Key Sources
 
-- Impact of broad scale non-pharmaceutical intervetions is based on the observed impact of such programs in 1918 as reported in [@Bootsma2007]. We took parameter estimates on the effectiveness of interventions from Milwaukee in this study.
+- Impact of broad scale non-pharmaceutical intervetions is based on the observed impact of such programs in 1918 as reported in [@Bootsma2007]. 
+
+#We took parameter estimates on the effectiveness of interventions from Milwaukee in this study.
 
 - School closure impacts based on data from [@Jackson2020], [@Cauchemez2008] and [@Litvinova2019]
 
