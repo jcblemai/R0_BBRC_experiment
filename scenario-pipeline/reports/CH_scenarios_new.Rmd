@@ -199,16 +199,16 @@ hosp_agg_stats_tab %>%
 #### ICU capacity
 
 ```{r exceedence, fig.width=9, fig.height=4, fig.cap=capicu}
-# icu_exceed <- computeProbExceedence(state_hosp_totals, icu_threshs) %>% 
-#   mutate(icu_thresh = factor(icu_thresh))
-# 
-# ggplot(icu_exceed, aes(x = time, y = exceed_frac * 100, color = icu_thresh)) +
-#   geom_line() +
-#   facet_wrap(~ scenario_name) +
-#   theme_minimal() +
-#   scale_color_brewer(palette = "Reds", direction = -1) +
-#   labs(x = "", y = "Percentage of simualtions \n exceeding threshold") +
-#   guides(color = guide_legend(title = "ICU capacity"))
+icu_exceed <- computeProbExceedence(state_hosp_totals, icu_threshs) %>%
+  mutate(icu_thresh = factor(icu_thresh))
+
+ggplot(icu_exceed, aes(x = time, y = exceed_frac * 100, color = icu_thresh)) +
+  geom_line() +
+  facet_wrap(~ scenario_name) +
+  theme_minimal() +
+  scale_color_brewer(palette = "Reds", direction = -1) +
+  labs(x = "", y = "Percentage of simualtions \n exceeding threshold") +
+  guides(color = guide_legend(title = "ICU capacity"))
 
 capicu <- paste0("**Fig. ", fig_counter, "**: Probability of exceedence of ICU capacity threholds for ", scen_desc_str, ".")
 fig_counter <- fig_counter + 1
