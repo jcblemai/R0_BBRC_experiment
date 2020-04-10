@@ -224,7 +224,7 @@ Prepared by Joseph Lemaitre (Ecole Polytechnique Fédérale de Lausanne, EPFL), 
 ## Methods
 
 ```{r r0}
-r0 <- readRDS("reports/R0_reduction.rds") %>%
+r0 <- readRDS("reports/R0_reduction.csv") %>%
   filter(ll_comp == "d-deltah", ShortName == "CH")
 ```
 
