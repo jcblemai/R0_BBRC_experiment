@@ -51,7 +51,7 @@ geodata <- load_geodata_file(file.path(config$spatial_setup$base_path, config$sp
 included_geoids <- geodata$geoid
 
 scn_dirs <- paste(config$name,config$interventions$scenarios,sep='_')
-nfiles <- config$nsimulations ## set to NULL or the actual number of sim files to include for final report
+nfiles <- 10#config$nsimulations ## set to NULL or the actual number of sim files to include for final report
 
 ```
 
@@ -76,7 +76,7 @@ R0_range <- c(config$seir$parameters$R0s$low, config$seir$parameters$R0s$high)
 release_date <- as.Date(config$interventions$settings$Stopped$period_start_date)
 time_horizons <- as.Date(config$report$formatting$display_dates)
 
-icu_threshs <- c(500, 1e3, 2e3)
+icu_threshs <- c(1e3, 2e3, 3e3)
 time_cut <- as.Date("2020-04-08")
 
 Sys.setlocale("LC_TIME", "C")
@@ -86,8 +86,7 @@ Sys.setlocale("LC_TIME", "C")
 ## Summary 
 
 ### Scenario definition
-This report compares the health impact and surge capacity needs for the COVID-19 epidemic in Switzerland. The underlying model is based on our best understanding of SARS-CoV-2 natural history and transmission, and uses current demographic and epidemiologic data from Switzerland and other locations (Table 1). We project the number of hospitalizations, ICU admissions, and deaths in both the short and long term under different public-health intervention scenarios.
-
+This report compares the health impact and surge capacity needs for the COVID-19 epidemic in Switzerland. The underlying model is based on our best understanding of SARS-CoV-2 natural history and transmission, and uses current demographic and epidemiologic data from Switzerland and other locations. We project the number of hospitalizations, ICU admissions, and deaths in both the short and long term under different public-health intervention scenarios.
 
 We compared `r nscenarios` intervention scenarios for model simulations from `r print_pretty_date(sim_start_date)` through `r print_pretty_date(sim_end_date)`:
 
@@ -95,17 +94,17 @@ We consider three planning scenarios:
 
 - **Current Measures**, which assumes measures as they were instituted in Switzerland:
 
-- School closure on March 13,
-- Physical distancing measures progressively established from March 16 to March 20.  CHECK IF SAME
+- School closure on March 14,
+- Physical distancing measures progressively established from March 14 to March 20. 
 
 We fitted the impact of these moderately restrictive non-pharmaceutical interventions (NPIs) on cases, hospitalizations and deaths per canton. In this scenario, we assume these measures are maintained for the foreseeable future.
 
-- **Current Measures Stopped May 31**, the measures described in the Current Measures scenario are held up until May 31st, then we assume a return to baseline, early epidemic level transmissibility for the foreseeable future.
+- **Current Measures Stopped April 26th**, the measures described in the Current Measures scenario are held up until April 26th as annonced on, then we assume a return to baseline, early epidemic level transmissibility for the foreseeable future.
 
-- **Test and Isolate**, which assumes that current measures are replace on May 31th by a test and isolation, that shorten the infectious period of about half for about half of the individuals. This measure are maintained for the foreseeable future.
+- **Test and Isolate**, which assumes that current measures are replace on April 26th by a test and isolation, that shorten the infectious period of about half for about half of the individuals. This measure are maintained for the foreseeable future.
 
 ```{r rmd_formatting}
-scen_desc_str <- "three scenarios with current measures unil May 31 followed by 1) a indefinite continuation of current measures, 2) a return to baseline transmissiblity, and 3) targeted testing and isolation"
+scen_desc_str <- "three scenarios with current measures unil April 26th followed by 1) a indefinite continuation of current measures, 2) a return to baseline transmissiblity, and 3) targeted testing and isolation"
 fig_counter <- 1
 tab_counter <- 1
 ```
@@ -121,10 +120,8 @@ state_hosp_totals <- load_hosp_geocombined_totals(scn_dirs,
 # Load resampling file
 resampled_sims <- read_csv("reports/resample_sims.csv")
 
-state_hosp_totals <- state_hosp_totals %>%
-  inner_join(resampled_sims)
-
-state_hosp_totals <- state_hosp_totals %>% select(-sim_num) %>% rename(sim_num = new_sim_num)
+# state_hosp_totals <- inner_join(state_hosp_totals , resampled_sims) %>% 
+# select(-sim_num) %>% rename(sim_num = new_sim_num)
 ```
 
 ### Scenario outcomes
@@ -202,16 +199,16 @@ hosp_agg_stats_tab %>%
 #### ICU capacity
 
 ```{r exceedence, fig.width=9, fig.height=4, fig.cap=capicu}
-icu_exceed <- computeProbExceedence(state_hosp_totals, icu_threshs) %>% 
-  mutate(icu_thresh = factor(icu_thresh))
-
-ggplot(icu_exceed, aes(x = time, y = exceed_frac * 100, color = icu_thresh)) +
-  geom_line() +
-  facet_wrap(~ scenario_name) +
-  theme_minimal() +
-  scale_color_brewer(palette = "Reds", direction = -1) +
-  labs(x = "", y = "Percentage of simualtions \n exceeding threshold") +
-  guides(color = guide_legend(title = "ICU capacity"))
+# icu_exceed <- computeProbExceedence(state_hosp_totals, icu_threshs) %>% 
+#   mutate(icu_thresh = factor(icu_thresh))
+# 
+# ggplot(icu_exceed, aes(x = time, y = exceed_frac * 100, color = icu_thresh)) +
+#   geom_line() +
+#   facet_wrap(~ scenario_name) +
+#   theme_minimal() +
+#   scale_color_brewer(palette = "Reds", direction = -1) +
+#   labs(x = "", y = "Percentage of simualtions \n exceeding threshold") +
+#   guides(color = guide_legend(title = "ICU capacity"))
 
 capicu <- paste0("**Fig. ", fig_counter, "**: Probability of exceedence of ICU capacity threholds for ", scen_desc_str, ".")
 fig_counter <- fig_counter + 1
@@ -226,16 +223,22 @@ Prepared by Joseph Lemaitre (Ecole Polytechnique Fédérale de Lausanne, EPFL), 
 
 ## Methods
 
+```{r r0}
+r0 <- readRDS("reports/R0_reduction.rds") %>%
+  filter(ll_comp == "d-deltah", ShortName == "CH")
+```
+
+
 ### Model assumptions
-We built a stochastic, Susceptible-Exposed-Infected-Recovered (SEIR) model of SARS-CoV-2 transmission in canton Vaud.
+We built a stochastic, Susceptible-Exposed-Infected-Recovered (SEIR) model of SARS-CoV-2 transmission in canton Switzerland.
 
 **Population.** The total population and age distribution were collected from the website of the Swiss Federal Statistical Office. The entire population of the canton is assumed to be susceptible at the beginning of the model. We assume equal risk of infection for all individuals at a given time.
 
-**Initial conditions.** We used the first confirmed cases recorded in Vaud on February 25 to inform the importations that seeded our epidemic model. We assumed that there was a reporting rate of 20% during this period using Poisson draws with a rate parameter five times the cumulative number of cases. Baseline transmissibility in the model is similar to the early days of the Wuhan epidemic (R0 = 2-3.3). 
+**Initial conditions.** We used the first confirmed cases recorded in each canton to inform the importations that seeded our epidemic model. We assumed that there was a reporting rate of 20% during this period using Poisson draws with a rate parameter five times the cumulative number of cases. Baseline transmissibility in the model was estimated with the available epidemiological data (see Section "Inference"). 
 
-**Reproductive Number.** The reproductive number R0, or the average number of secondary cases caused by a single infected individual in a susceptible population, varies by scenario. Note that the reproductive number is highly-context specific. There is still uncertainty in the range of possible R0 values for SARS-CoV-2, and varying effectiveness of non-pharmaceutical interventions, including social distancing, improved hand hygiene, and case detection and isolation, may further reduce R0. We here use time-varying estimates of R0 based on our analysis of COVID-19-related deaths, hospitalizations and cases across cantons in Switzerland (for details see the "Inference" section). These estimates capture the decrease in time of R0 linked to the implementation of NPIs starting February 28th in the country. For specific scenarios we assume that R0 returns linearly to either the baseline value (Current Measures Stopped) or a fraction of it (Trace and Isolate) in 1 week. Baseline values of R0 were computed for the period March 3rd-March 10th (see "Inference" section).
+**Reproductive Number.** The reproductive number $R_0$, or the average number of secondary cases caused by a single infected individual in a susceptible population, varies by scenario. Note that the reproductive number is highly-context specific. There is still uncertainty in the range of possible $R_0$ values for SARS-CoV-2, and varying effectiveness of non-pharmaceutical interventions, including social distancing, improved hand hygiene, and case detection and isolation, may further reduce $R_0$. We here produce time-varying estimates of $R_0$ based on our analysis of COVID-19-related deaths, hospitalizations and cases across cantons in Switzerland (for details see the "Inference" section). These estimates capture the decrease in time of $R_0$ linked to the implementation of NPIs starting February 28th in the country. Our preliminary estimates are of a mean baseline $R_0$ of `r format(r0$mean[r0$var == "r0_left"], digits=2)` (`r format(r0$q025[r0$var == "r0_left"], digits=2)`-`r format(r0$q975[r0$var == "r0_left"], digits=2)` 95\% QR) prior to interventions, and a mean of `r format(r0$mean[r0$var == "r0_right"], digits=2)` (`r format(r0$q025[r0$var == "r0_right"], digits=2)`-`r format(r0$q975[r0$var == "r0_right"], digits=2)` 95\% QR) in the period of March 3 - April 5th, resulting in a mean change of `r format(100-100*r0$mean[r0$var == "r0change"], digits=2)`\% (`r format(100-100*r0$q975[r0$var == "r0change"], digits=2)`\%-`r format(100-100*r0$q025[r0$var == "r0change"], digits=2)`\% 95\% QR) ( for details see "Inference" section). For specific scenarios we assume that $R_0$ returns linearly to either the baseline value (Current Measures Stopped) or a fraction of it (Trace and Isolate) in 1 week.
 
-**COVID-19 Natural History.** From analysis of 181 confirmed SARS-CoV-2 cases among travelers and other publicly reported cases, we estimate the incubation period, or the time from exposure to symptom onset, to follow an exponential distribution with mean 5.2 days (IQR 1.5, 7.21 days) (Fig. S1). The average duration of infectiousness following symptom onset is between 1.3 days and 3, following an Erlang distribution with 3 compartments. We thus sample across a range of possible mean serial intervals (time from symptom onset of an index case to symptom onset of a secondary case infected by the index) from 6.5 to 8.2 days.
+**COVID-19 Natural History.** From analysis of 181 confirmed SARS-CoV-2 cases among travelers and other publicly reported cases, we estimate the incubation period, or the time from exposure to symptom onset, to follow an exponential distribution with mean 5.2 days (IQR 1.5, 7.21 days). The average duration of infectiousness following symptom onset is between 1.3 days and 3, following an Erlang distribution with 3 compartments. We thus sample across a range of possible mean serial intervals (time from symptom onset of an index case to symptom onset of a secondary case infected by the index) from 6.5 to 8.2 days.
 
 *Rates of Death and Hospitalization.* From our analysis of 391 confirmed SARS-CoV-2 infections in Shenzhen, China, we estimate the average time to hospitalization from symptom onset follows a log-normal distribution with median 3.42 days (IQR 2.01, 5.83) (Fig. 3). Other rates where derived from Vaud canton hospitalization data. We fitted a log normal distribution to the observed distribution of time hopsitalized, time in ICU, time from hospitalization to ICU and time to death. We estimate from current data that, among those hospitalized, 20% will be admitted to the ICU.
 
@@ -243,23 +246,20 @@ We built a stochastic, Susceptible-Exposed-Infected-Recovered (SEIR) model of SA
 
 We use simple statistical models using the cumulative distribution of times to hospitalization, ICU admission, and death, as well as the durations of hospitalization and ICU stay to calculate the number of incident and cumulative hospitalizations and ICU admissions and deaths per day, accounting for appropriate delays since infection and symptom onset.
 
-Uncertain parameters include the length of the serial interval, R0 and the probability of hospitalization. Simulated time series of incidence and hospitalizations are based on 30’000 random draws from reasonable bounds of the parameter values (Table 1). Simulated trajectories are then resampled based on the degree to which they match the observed time series of cumulative hospitalizations, which gives a set of simulations which represent well the observed data.
+Uncertain parameters include the length of the serial interval, $R_0$ and the probability of hospitalization. Simulated time series of incidence and hospitalizations are based on 30’000 random draws from reasonable bounds of the parameter values (Table 1). Simulated trajectories are then resampled based on the degree to which they match the observed time series of cumulative hospitalizations, which gives a set of simulations which represent well the observed data.
 
 
 ### Limitations
 We note several limitations to our work, among which:
 
-There remains considerable uncertainty around some of the key epidemiologic features of COVID-19, including the average duration of infectiousness and time to recovery or death. We have used commonly accepted and well supported estimates and  believe that they are appropriate for planning purposes.
+There remains considerable uncertainty around some of the key epidemiologic features of COVID-19, including the average duration of infectiousness and time to recovery or death. We have used commonly accepted and well supported estimates as well as hospitalization data from the canton of Vaud up till April 8th, and believe that they are appropriate for planning purposes.
 
-We assume equal risk of infection and progression to hospitalization or death among all individuals in the canton at a given time point. There is evidence of age-specific differences in clinical burden and perhaps in susceptibility to infection that are not (yet) considered here. 
-
-We assume Re, the effective reproductive number, to be constant in each scenario, other than changes due to onset of non-pharmaceutical interventions. As capacity for surveillance, contact tracing, and testing improve, and as the general public becomes increasingly aware of the outbreak and modifies their own behavior, we might expect that Re will decrease dynamically, perhaps even as a function of the perceived COVID19 burden. As the outbreak continues, it will be possible to refine the scenarios considered here to better reflect the actual epidemic situation.
-
+We assume equal risk of infection and progression to hospitalization or death among all individuals in the country at a given time point. There is evidence of age-specific differences in clinical burden and perhaps in susceptibility to infection that are not (yet) considered here. 
 
 We do not explicitly model the role of asymptomatic infection when calculating the number of expected hospitalizations. All infectious individuals are considered at risk of hospitalization, though some may recover or die prior to hospitalization. A substantial asymptomatic burden may reduce the number of hospitalized cases.
 
 
-
+### Simulations agreement with epidemiological data up to April 8th
 
 ```{r sims and data, fig.width=10, fig.height=3.5}
 national_data <- read_csv("reports/national_data.csv") %>% 
@@ -285,10 +285,96 @@ fig_counter <- fig_counter + 1
 
 - Impact of broad scale non-pharmaceutical intervetions is based on the observed impact of such programs in 1918 as reported in [@Bootsma2007]. 
 
-#We took parameter estimates on the effectiveness of interventions from Milwaukee in this study.
+We took parameter estimates on the effectiveness of interventions from Milwaukee in this study.
 
 - School closure impacts based on data from [@Jackson2020], [@Cauchemez2008] and [@Litvinova2019]
 
 - Approximate generation time is based on data from [@Bi2020]
 
-## Time-varying estimates of $R_0$
+## Inference
+We support the development of our planning scenarios with a modelling analysis of the epidemiological data available up to April 8th. We aim at inferring time-varying estimates $R_0$ at the national level following the progressive introduction of NPIs from March 2nd to March 20th.
+
+### Inference methods
+**Infection dynamics and hospitalization model** We implement for inference a stochastic dynamical model of the epidemic and hospitalization processes based on the SEIR template used for our scenario generation. The infection dynamics part of the model is the same as the one used for scenario building. Hospitalization dynamics are here modelled explicitely, as opposed to the statistical approach used in scenario buidling. This is done so as to allow the formulation of data likelihood functions which incorporate them. The model assumes that infected people have a certain probability of developing severe symptoms, which then either are hospitalized or not. Infected can dye either outside of the hospital system or within it, either in an ICU or not. The number of compartments in each stage of the disease is determined by fitting an Erlang distribution to the observed times of each transition between classes. These were determing based on hospital data from VD up to April 8th.
+
+**Inference** We fit the model to cantonal-level data available from [OpenZH](https://github.com/openZH/covid_19). These include the current number of hospitalized COVID patients, and the cumulative numbers of deaths, cases and hospital discharges. The latter was not available in all cantons. Time-varying transmission $R_0(t)$ was estimated following a similar approach than that in [@Cazelles2018], with assumptions on the natural history of SARS-CoV-2 detailed in the Methods section.
+
+We choose to only use deaths and hospitalizations for model estimation to the challenges linked to COVID-19 case identification and heterogenous testing strategies adopted across cantons. The observation model is formulated as follows:
+
+$$
+\begin{aligned}
+deaths(t) &\sim Poisson(\Delta D(t)) \\
+\Delta hosp(t) &\sim Skellam(\Delta H(t), \Delta D_H(t) + \Delta R_H(t)) \\
+\end{aligned}
+$$
+where, $\Delta I(t)$, $\Delta D(t)$, $\Delta H(t)$, $\Delta D_H(t)$, $\Delta R_H(t)$ are respectively the number of new infected, deaths, hospitalized, and deaths and discharged from hospitals at time $t$, and $\Delta hosp(t)$ is the difference between the number of current hospitalizations at times $t$ and $t-1$, for which we choose a [Skellam distribution](https://en.wikipedia.org/wiki/Skellam_distribution). The full log-likelihood of the observation model was taken as the sum of the individual log-likelihoods of the two data types. The model was fit using multiple-iterated filtering as implemented by [@Ionides2015] in the [POMP](https://kingaa.github.io/pomp/) R package.
+
+### Estimates of time-varying $R_0$
+
+```{r r0plot, echo=FALSE, fig.height=4, fig.width=5, fig.cap=capr}
+filterstats <- read_csv("reports/r0.csv")
+yearsToDate <- function(year_frac, origin = as.Date("2020-01-01"), yr_offset = 2020.0) {
+  as.Date((year_frac - yr_offset) * 365.25, origin = origin)
+}
+p <- filterstats %>% 
+  ggplot(aes(x = yearsToDate(time))) +
+  geom_ribbon(aes(ymin = q025, ymax = q975), alpha = .2) +
+  geom_ribbon(aes(ymin = q25, ymax = q75), alpha = .2) +
+  theme_bw() +
+  labs(x = "", y = "Basice reproduction number") +
+  geom_hline(aes(yintercept = 1), lty = 2, size = .3)
+p
+capr <- paste0("**Fig. ", fig_counter, "**: Time-varying estimates of $R_0$ in Switzerland. Light gray and dark gray envelops give the 50% and 95% quantile ranges of the smoothing distribution of $R_0$ given the data.")
+fig_counter <- fig_counter + 1
+```
+
+### Fit to data
+```{r datafit, fig.cap=capf, fig.height=5.5, fig.width=9}
+data <- read_csv("reports/national_data.csv")
+filter_stats <- read_csv("reports/filter_states.csv")
+
+state_names <- unique(filter_stats$var)
+plot_states <- c("D", "H_curr", "U_curr", "a_D", "a_deltaH", "tot_I") 
+
+var_dict <- c("D" = "Cumulative deaths",
+              "H_curr" = "Current hospitalizations",
+              "U_curr" = "Current ICUs",
+              "a_deltaH" = "Hospitalization balance",
+              "a_D" = "Death incidence",
+              "a_I" = "Case incidence",
+              "tot_I" = "Cumulative cases")
+
+pdata <- ggplot(filter_stats %>%
+                  filter(var %in% plot_states, parset == 2) %>% 
+                  mutate(date = yearsToDate(time)), aes(x = date)) +
+  geom_ribbon(aes(ymin = q025, ymax = q975), alpha = .2) +
+  geom_ribbon(aes(ymin = q25, ymax = q75), alpha = .2) +
+  geom_point(data = data %>%
+               rename(
+                 a_I = cases,
+                 a_H = hosp_incid,
+                 U_curr = icu_curr,
+                 H_curr = hosp_curr,
+                 D = cum_deaths,
+                 a_D = deaths,
+                 a_O = discharged,
+                 a_deltaH = delta_hosp,
+                 a_deltaID = delta_ID
+               ) %>% 
+               gather(var, value, -date) %>% 
+               filter(var %in% plot_states),
+             aes(y = value)) +
+  facet_wrap(~var, scales = "free_y", labeller = labeller(var = var_dict))  +
+  theme_bw() +
+  labs(x = "", y = "")
+
+pdata
+capf <- paste0("**Fig. ", fig_counter, "**: Fit of model to data. Data (points) are plotted agains Light gray the 50% (dark gray) and 95% (light gray) quantile ranges of the smoothing distribution of the epidemiological variables given the data. The units of all y-axis are daily numbers. Note that model estimates provide the assumed true number of infections, which can larger than reported cases due to underreporting.")
+fig_counter <- fig_counter + 1
+```
+
+
+
+## References
+
+
