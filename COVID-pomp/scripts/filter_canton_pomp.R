@@ -1,4 +1,8 @@
-library(tidyverse)
+library(dplyr)
+library(purrr)
+library(readr)
+library(stringr)
+library(tidyr)
 library(doSNOW)
 library(pomp)
 library(magrittr)
@@ -10,20 +14,29 @@ library(sf)
 library(glue)
 
 select <- dplyr::select
-source("COVID-pomp/scripts/skellam.R")
-source("COVID-pomp/scripts/mifCooling.R")
-source("COVID-pomp/scripts/utils.R")
-
 option_list = list(
   optparse::make_option(c("-c", "--config"), action="store", default='pomp_config.yaml', type='character', help="path to the config file"),
-  optparse::make_option(c("-p", "--place"), action="store", default='CH', type='character', help="name of place to be run, a Canton abbrv. in CH"),
+  optparse::make_option(c("-p", "--place"), action="store", default='AR', type='character', help="name of place to be run, a Canton abbrv. in CH"),
+  optparse::make_option(c("-a", "--asindex"), action="store", default=0, type='numeric', help="whether to use the index of a slurm array"),
+  optparse::make_option(c("-b", "--basepath"), action="store", default="", type='character', help="base path"),
   optparse::make_option(c("-j", "--jobs"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
+  optparse::make_option(c("-o", "--cores"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-n", "--nfilter"), action="store", default=10, type='numeric', help="Number of filtering iterations"),
   optparse::make_option(c("-l", "--likelihood"), action="store", default='c-d-deltah', type='character', help="likelihood to be used for filtering"),
   optparse::make_option(c("-w", "--downweight"), action="store", default=0, type='numeric', help="downweight ikelihood to be used for filtering")
-  )
+)
 opt <- optparse::parse_args(optparse::OptionParser(option_list=option_list))
-config <- load_config(opt$c)
+config <- yaml::read_yaml(opt$config)
+
+source(glue("{opt$b}COVID-pomp/scripts/skellam.R"))
+source(glue("{opt$b}COVID-pomp/scripts/mifCooling.R"))
+source(glue("{opt$b}COVID-pomp/scripts/utils.R"))
+
+
+if (opt$a == 1 & Sys.getenv("SLURM_ARRAY_TASK_ID") != "") {
+  array_id <- as.numeric(Sys.getenv("SLURM_ARRAY_TASK_ID"))
+  opt$place <- config$places[array_id]
+}
 
 # Setup ------------------------------------------------------------------------
 # Read Rscript arguments
@@ -40,12 +53,13 @@ downweight <- opt$downweight
 ll_cases <- "c" %in% lik_components
 suffix <- buildSuffix(config$name, canton, lik_components, config$parameters_to_fit)
 
-filter_filename <- glue("COVID-pomp/results/filtered_{suffix}.rds")
+filter_filename <- glue("{opt$b}COVID-pomp/results/filtered_{suffix}.rds")
 
-liks <- read_csv(glue("COVID-pomp/results/loglik_exploration_{suffix}.csv"))
-load(glue("COVID-pomp/interm/pomp_{suffix}.rda"))
-source("COVID-pomp/scripts/pomp_skeleton.R")
-cl <- makeCluster(opt$jobs)
+liks <- read_csv(glue("{opt$b}COVID-pomp/results/loglik_exploration_{suffix}.csv"))
+load(glue("{opt$b}COVID-pomp/interm/pomp_{suffix}.rda"))
+
+source(glue("{opt$b}COVID-pomp/scripts/pomp_skeleton.R"))
+cl <- makeCluster(opt$cores)
 registerDoSNOW(cl)
 
 # Filter --------------------------------------------------------------------
@@ -57,28 +71,28 @@ best_params <- liks %>%
   slice(1:3)
 
 t3 <- system.time({
-filter_dists <- foreach(pari = iter(best_params, "row"),
-                        pit = icount(nrow(best_params)),
-                        .packages = c("pomp", "tidyverse", "foreach", "magrittr"),
-                        .combine = rbind,
-                        .noexport = c("par")) %do% {
-                          foreach(it = icount(opt$nfilter),
-                                  .combine = rbind,
-                                  .packages = c("pomp", "tidyverse", "foreach", "magrittr")
-                          ) %dopar% {
-                            
-                            pf <- pfilter(covid, params = as.vector(pari), Np = 3e3, filter.traj = T)
-                            traj <- filter.traj(pf) %>% 
-                              as.data.frame() 
-                            
-                            t(traj) %>%
-                              as_tibble() %>% 
-                              mutate(time = as.numeric(str_replace(colnames(traj), "1.", ""))) %>% 
-                              gather(var, value, -time) %>% 
-                              mutate(it = it,
-                                     parset = pit)
+  filter_dists <- foreach(pari = iter(best_params, "row"),
+                          pit = icount(nrow(best_params)),
+                          .packages = c("pomp", "tidyverse", "foreach", "magrittr"),
+                          .combine = rbind,
+                          .noexport = c("par")) %do% {
+                            foreach(it = icount(opt$nfilter),
+                                    .combine = rbind,
+                                    .packages = c("pomp", "tidyverse", "foreach", "magrittr")
+                            ) %dopar% {
+                              
+                              pf <- pfilter(covid, params = as.vector(pari), Np = 3e3, filter.traj = T)
+                              traj <- filter.traj(pf) %>% 
+                                as.data.frame() 
+                              
+                              t(traj) %>%
+                                as_tibble() %>% 
+                                mutate(time = as.numeric(str_replace(colnames(traj), "1.", ""))) %>% 
+                                gather(var, value, -time) %>% 
+                                mutate(it = it,
+                                       parset = pit)
+                            }
                           }
-                        }
 })
 
 saveRDS(filter_dists %>% mutate(ShortName = canton), file = filter_filename)
@@ -104,9 +118,9 @@ state_names <- unique(filter_stats$var)
 plot_states <- c("tot_I", "Rt", state_names[str_detect(state_names, "a_|_curr")], "D") 
 
 # Load data
-data <- read_csv(glue("COVID-pomp/interm/data_{suffix}.csv"))
+data <- read_csv(glue("{opt$b}COVID-pomp/interm/data_{suffix}.csv"))
 
-p <- ggplot(filter_stats %>% filter(var %in% plot_states, parset  == 1), aes(x = date)) +
+p <- ggplot(filter_stats %>% filter(var %in% plot_states), aes(x = date)) +
   geom_ribbon(aes(ymin = q025, ymax = q975, fill = parset), alpha = .2) +
   geom_ribbon(aes(ymin = q25, ymax = q75, fill = parset), alpha = .2) +
   geom_point(data = data %>%
@@ -126,4 +140,4 @@ p <- ggplot(filter_stats %>% filter(var %in% plot_states, parset  == 1), aes(x =
   facet_wrap(~var, scales = "free")  +
   theme_bw()
 print('ok)')
-ggsave(p, filename = glue("COVID-pomp/results/figs/plot_{suffix}.png"), width = 9, height = 6)
+ggsave(p, filename = glue("{opt$b}COVID-pomp/results/figs/plot_{suffix}.png"), width = 9, height = 6)

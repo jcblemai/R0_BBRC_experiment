@@ -1,5 +1,9 @@
 # Title: POMP model of COVID19 in CH, cantonal level
-library(tidyverse)
+library(dplyr)
+library(purrr)
+library(readr)
+library(stringr)
+library(tidyr)
 library(doSNOW)
 library(pomp)
 library(magrittr)
@@ -10,21 +14,29 @@ library(parallel)
 library(sf)
 library(glue)
 select <- dplyr::select
-source("COVID-pomp/scripts/skellam.R")
-source("COVID-pomp/scripts/utils.R")
-source("COVID-pomp/scripts/mifCooling.R")
 
 option_list = list(
   optparse::make_option(c("-c", "--config"), action="store", default='pomp_config.yaml', type='character', help="path to the config file"),
+  optparse::make_option(c("-a", "--asindex"), action="store", default=0, type='numeric', help="whether to use the index of a slurm array"),
+  optparse::make_option(c("-b", "--basepath"), action="store", default="", type='character', help="base path"),
   optparse::make_option(c("-j", "--jobs"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
+  optparse::make_option(c("-o", "--cores"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-r", "--run_level"), action="store", default=1, type='numeric', help="run level for MIF"),
-  optparse::make_option(c("-p", "--place"), action="store", default='CH', type='character', help="name of place to be run, a Canton abbrv. in CH"),
+  optparse::make_option(c("-p", "--place"), action="store", default='AR', type='character', help="name of place to be run, a Canton abbrv. in CH"),
   optparse::make_option(c("-l", "--likelihood"), action="store", default='c-d-deltah', type='character', help="likelihood to be used for filtering"),
   optparse::make_option(c("-w", "--downweight"), action="store", default=0, type='numeric', help="downweight ikelihood to be used for filtering")
 )
 opt <- optparse::parse_args(optparse::OptionParser(option_list=option_list))
-config <- load_config(opt$c)
+config <- yaml::read_yaml(opt$config)
 
+source(glue("{opt$b}COVID-pomp/scripts/skellam.R"))
+source(glue("{opt$b}COVID-pomp/scripts/mifCooling.R"))
+source(glue("{opt$b}COVID-pomp/scripts/utils.R"))
+
+if (opt$a == 1 & Sys.getenv("SLURM_ARRAY_TASK_ID") != "") {
+  array_id <- as.numeric(Sys.getenv("SLURM_ARRAY_TASK_ID"))
+  opt$place <- config$places[array_id]
+}
 
 # Setup ------------------------------------------------------------------------
 # Read Rscript arguments
@@ -46,15 +58,15 @@ suffix <- buildSuffix(config$name, canton, lik_components, config$parameters_to_
 # Level of detail on which to run the computations
 run_level <- opt$run_level
 sir_Np <- c(1e3, 3e3, 3e3)
-sir_Nmif <- c(2, 20, 100)
-sir_Ninit_param <- c(opt$jobs/2, opt$jobs, opt$jobs*2)
+sir_Nmif <- c(2, 20, 150)
+sir_Ninit_param <- c(opt$jobs/2, opt$jobs, opt$jobs)
 sir_NpLL <- c(1e3, 1e4, 1e4)
 sir_Nreps_global <- c(2, 5, 10)
 
 
 # Data ---------------------------------------------------------------
 
-data_file <- glue("data/ch/cases/covid_19/fallzahlen_kanton_total_csv_v2/COVID19_Fallzahlen_Kanton_{canton}_total.csv")
+data_file <- glue("{opt$b}data/ch/cases/covid_19/fallzahlen_kanton_total_csv_v2/COVID19_Fallzahlen_Kanton_{canton}_total.csv")
 
 cases_data <- read_csv(data_file, col_types = cols()) %>% 
   filter(date < "2020-04-08") %>%
@@ -72,7 +84,7 @@ cases_data$cases[cases_data$cases < 0] <- NA
 
 if (canton == "CH") {
   cases_data$delta_ID <- NA
-  cases_ofsp <- read_csv("data/ch/cases_CH.csv") %>% 
+  cases_ofsp <- read_csv("{opt$b}data/ch/cases_CH.csv") %>% 
     mutate(date = as.Date(date, format = "%m/%d/%Y"))
   cases_data <- select(cases_data, -cases) %>% 
     left_join(cases_ofsp)
@@ -96,10 +108,10 @@ data <- rbind(tibble(date = seq.Date(start_date, min(data$date), by = "1 days"))
 
 data <- data %>% complete(date = seq.Date(start_date,end_date, by="day"))
 
-write_csv(data, glue("COVID-pomp/interm/data_{suffix}.csv"))
+write_csv(data, glue("{opt$b}COVID-pomp/interm/data_{suffix}.csv"))
 
 # Build pomp object -------------------------------------------------------
-source("COVID-pomp/scripts/pomp_skeleton_v2.R")
+source(glue("{opt$b}COVID-pomp/scripts/pomp_skeleton_v2.R"))
 
 # Start and end dates of epidemic
 t_start <- dateToYears(start_date)
@@ -194,12 +206,12 @@ cat("************ \nFITTING:", canton, "with likelihood:", opt$likelihood, "\n**
 
 
 # files for results
-ll_filename <- glue("COVID-pomp/results/loglik_exploration_{suffix}.csv")
-mif_filename <- glue("COVID-pomp/results/mif_sir_sde_{suffix}.rda")
+ll_filename <- glue("{opt$b}COVID-pomp/results/loglik_exploration_{suffix}.csv")
+mif_filename <- glue("{opt$b}COVID-pomp/results/mif_sir_sde_{suffix}.rda")
 
 
 # parallel computations
-cl <- makeCluster(opt$jobs)
+cl <- makeCluster(opt$cores)
 registerDoSNOW(cl)
 
 # Setup MIF parameters -----------------------------------------------------
@@ -217,7 +229,7 @@ min_param_val <- 1e-5
 parameter_bounds <- tribble(
   ~param, ~lower, ~upper,
   # Process noise
-  "std_X", 3, 4, #in log-scale
+  "std_X", -3, -1, #in log-scale
   # Measurement model
   "k", .1, 10,
   "epsilon", 0.2, 0.5,
