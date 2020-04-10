@@ -11,3 +11,5 @@ Rscript COVIDScenarioPipeline/R/scripts/hosp_run.R -s TestIsolate -d low -j 16 -
 Rscript COVIDScenarioPipeline/R/scripts/hosp_run.R -s TestIsolate -d med -j 16 -c config.yml
 Rscript COVIDScenarioPipeline/R/scripts/hosp_run.R -s TestIsolate -d high -j 16 -c config.yml
 
+Rscript NPI/filter_data_likelihood.R
+
