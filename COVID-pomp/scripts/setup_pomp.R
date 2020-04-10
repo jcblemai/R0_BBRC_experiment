@@ -10,7 +10,7 @@ source("COVID-pomp/scripts/utils.R")
 select <- dplyr::select
 # Load hospitalization data ----------------------------------------------------
 # Date to replace on the right bound
-right_date <- as.Date("2020-04-08")
+right_date <- as.Date("2020-04-09")
 
 # Hospital data
 hosp_data <- read_csv("data/vd/hospitalization_data_full_20200408.csv") %>% 
@@ -21,6 +21,8 @@ hosp_data <- read_csv("data/vd/hospitalization_data_full_20200408.csv") %>%
          outcome = case_when(deceased ~ "deceased",
                              !is.na(date_out) ~ "discharged",
                              T ~ "hospitalized"), 
+         time_to_death = difftime(date_out, date_in, units = "days"),
+         time_icu_to_death = difftime(date_out, icu_in, units = "days"),
          date_out = case_when(is.na(date_out) ~ right_date,
                               T ~ date_out),
          time_hosp = difftime(date_out, date_in, units = "days"),
@@ -30,9 +32,7 @@ hosp_data <- read_csv("data/vd/hospitalization_data_full_20200408.csv") %>%
          icu_out = case_when(!is.na(icu_in) & is.na(icu_out) ~ right_date,
                              !is.na(icu_out) ~ icu_out),
          time_icu = difftime(icu_out, icu_in, units = "days"),
-         time_to_death = difftime(date_out, date_in, units = "days"),
-         time_to_icu= difftime(icu_in, date_in, units = "days"),
-         time_icu_to_death = difftime(date_out, icu_in, units = "days")) %>% 
+         time_to_icu= difftime(icu_in, date_in, units = "days")) %>% 
   mutate_at(vars(contains("time_")), as.numeric)
 
 
@@ -47,17 +47,24 @@ hosp_cumul <-  bind_rows(
                   deaths_icu_incid = sum(date_out == x & !is.na(icu_in) & outcome == "deceased"),
                   deaths_noicu_incid = sum(date_out == x & is.na(icu_in) & outcome == "deceased"),
                   hosp_curr = sum(date_in <= x & (date_out > x | (date_out ==x & outcome == "hospitalized"))),
-                  icu_curr = sum(icu_in <= x & (icu_out > x |(icu_out == x & outcome == "hospitalized")), na.rm = T)
+                  icu_curr = sum(icu_in <= x & (icu_out > x |(icu_out == x & outcome == "hospitalized")), na.rm = T),
+                  r_incid =  sum(date_out == x & outcome == "discharged"),
+                  r_cumul =  sum(date_out <= x  & outcome == "discharged"),
+                  o_cumul =  sum(date_out <= x  & outcome != "hospitalized"),
+                  d_cumul =  sum(date_out <= x  & outcome == "deceased"),
+                  hosp_cumul =  sum(date_in <= x)
                 )
            )
-         }))
+         })) %>% 
+  mutate(predd_cumul = hosp_cumul*0.1)
 
 write_csv(hosp_cumul, path = "data/VD_hosp_data.csv")
 hosp_cumul %>% 
-  gather(var, value, -date) %>% 
+  gather(var, value, -date) %>%  filter(str_detect(var, "cumul")) %>% 
   ggplot(aes(x = date, y = value, color = var)) +
-  geom_line() +
+  geom_line() #+
   facet_wrap(~ var, scales = "free_y")
+
 # Times ------------------------------------------------------------------------
 
 
@@ -72,7 +79,7 @@ obs_times <- list(
 
 # Number of compartments
 num_comp <- bind_rows(
-  mapply(function(x, t) {mutate(fitErland(x, zero_replace = .75), t = t)},
+  mapply(function(x, t) {x[x==0] = .5; mutate(fitErland(x, zero_replace = .75), t = t, obsmean = mean(x))},
          x = obs_times,
          t = names(obs_times),
          SIMPLIFY = F)
@@ -107,6 +114,7 @@ plot(p_erlangs)
 hosp_known <- filter(hosp_data, outcome != "hospitalized") %>% 
   mutate(icu = !is.na(icu_in))
 
+hosp_known$deceased[is.na(hosp_known$deceased)] <- F
 n_known <- nrow(hosp_known)
 
 pi2hs <- with(hosp_known, sum(outcome == "discharged" & !icu)/n_known)

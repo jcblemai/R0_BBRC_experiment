@@ -10,15 +10,14 @@ library(foreach)
 library(itertools)
 library(lubridate)
 library(parallel)
-library(sf)
 library(glue)
 
 select <- dplyr::select
 option_list = list(
   optparse::make_option(c("-c", "--config"), action="store", default='pomp_config.yaml', type='character', help="path to the config file"),
-  optparse::make_option(c("-p", "--place"), action="store", default='AR', type='character', help="name of place to be run, a Canton abbrv. in CH"),
+  optparse::make_option(c("-p", "--place"), action="store", default='CH', type='character', help="name of place to be run, a Canton abbrv. in CH"),
   optparse::make_option(c("-a", "--asindex"), action="store", default=0, type='numeric', help="whether to use the index of a slurm array"),
-  optparse::make_option(c("-b", "--basepath"), action="store", default="", type='character', help="base path"),
+  optparse::make_option(c("-b", "--basepath"), action="store", default="COVID-pomp/", type='character', help="base path"),
   optparse::make_option(c("-j", "--jobs"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-o", "--cores"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-n", "--nfilter"), action="store", default=10, type='numeric', help="Number of filtering iterations"),
@@ -28,9 +27,9 @@ option_list = list(
 opt <- optparse::parse_args(optparse::OptionParser(option_list=option_list))
 config <- yaml::read_yaml(opt$config)
 
-source(glue("{opt$b}COVID-pomp/scripts/skellam.R"))
-source(glue("{opt$b}COVID-pomp/scripts/mifCooling.R"))
-source(glue("{opt$b}COVID-pomp/scripts/utils.R"))
+source(glue("{opt$b}scripts/skellam.R"))
+source(glue("{opt$b}scripts/mifCooling.R"))
+source(glue("{opt$b}scripts/utils.R"))
 
 
 if (opt$a == 1 & Sys.getenv("SLURM_ARRAY_TASK_ID") != "") {
@@ -53,12 +52,12 @@ downweight <- opt$downweight
 ll_cases <- "c" %in% lik_components
 suffix <- buildSuffix(config$name, canton, lik_components, config$parameters_to_fit)
 
-filter_filename <- glue("{opt$b}COVID-pomp/results/filtered_{suffix}.rds")
+filter_filename <- glue("{opt$b}results/filtered_{suffix}.rds")
 
-liks <- read_csv(glue("{opt$b}COVID-pomp/results/loglik_exploration_{suffix}.csv"))
-load(glue("{opt$b}COVID-pomp/interm/pomp_{suffix}.rda"))
+liks <- read_csv(glue("{opt$b}results/loglik_exploration_{suffix}.csv"))
+load(glue("{opt$b}interm/pomp_{suffix}.rda"))
 
-source(glue("{opt$b}COVID-pomp/scripts/pomp_skeleton.R"))
+source(glue("{opt$b}scripts/pomp_skeleton.R"))
 cl <- makeCluster(opt$cores)
 registerDoSNOW(cl)
 
@@ -102,7 +101,7 @@ closeAllConnections()
 
 cat("----- Done filtering, took", round(t3["elapsed"]/60), "mins \n")
 
-
+filter_stats <- readRDS(filter_filename)
 filter_stats <- filter_dists %>% 
   group_by(time, parset, var) %>% 
   summarise(mean = mean(value, na.rm = T),
@@ -115,13 +114,13 @@ filter_stats <- filter_dists %>%
          parset = factor(parset))
 
 state_names <- unique(filter_stats$var)
-plot_states <- c("tot_I", "Rt", state_names[str_detect(state_names, "a_|_curr")], "D") 
+plot_states <- c("tot_I", "Rt", state_names[str_detect(state_names, "a_|_curr")], "D", "H_curr") 
 
 # Load data
-data <- read_csv(glue("{opt$b}COVID-pomp/interm/data_{suffix}.csv"))
+data <- read_csv(glue("{opt$b}interm/data_{suffix}.csv"))
 
-p <- ggplot(filter_stats %>% filter(var %in% plot_states), aes(x = date)) +
-  geom_ribbon(aes(ymin = q025, ymax = q975, fill = parset), alpha = .2) +
+p <- ggplot(filter_stats %>% filter(var %in% plot_states, parset == 1), aes(x = date)) +
+  # geom_ribbon(aes(ymin = q025, ymax = q975, fill = parset), alpha = .2) +
   geom_ribbon(aes(ymin = q25, ymax = q75, fill = parset), alpha = .2) +
   geom_point(data = data %>%
                rename(
@@ -140,4 +139,4 @@ p <- ggplot(filter_stats %>% filter(var %in% plot_states), aes(x = date)) +
   facet_wrap(~var, scales = "free")  +
   theme_bw()
 print('ok)')
-ggsave(p, filename = glue("{opt$b}COVID-pomp/results/figs/plot_{suffix}.png"), width = 9, height = 6)
+ggsave(p, filename = glue("{opt$b}results/figs/plot_{suffix}.png"), width = 9, height = 6)
