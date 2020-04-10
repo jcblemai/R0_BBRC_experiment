@@ -38,7 +38,6 @@ library(report.generation)
 library(kableExtra)
 library(gridExtra)
 source("compute_hosp_stats.R")
-nfiles <- 10 ## set to NULL or the actual number of sim files to include for final report
 
 ```
 
@@ -52,6 +51,7 @@ geodata <- load_geodata_file(file.path(config$spatial_setup$base_path, config$sp
 included_geoids <- geodata$geoid
 
 scn_dirs <- paste(config$name,config$interventions$scenarios,sep='_')
+nfiles <- config$nsimulations ## set to NULL or the actual number of sim files to include for final report
 
 ```
 
@@ -118,6 +118,13 @@ state_hosp_totals <- load_hosp_geocombined_totals(scn_dirs,
                                                   name_filter = "csv") %>% 
   mutate(pdeath = "", scenario_name = factor(scenario_name, levels = scenario_labels))
 
+# Load resampling file
+resampled_sims <- read_csv("reports/resample_sims.csv")
+
+state_hosp_totals <- state_hosp_totals %>%
+  inner_join(resampled_sims)
+
+state_hosp_totals <- state_hosp_totals %>% select(-sim_num) %>% rename(sim_num = new_sim_num)
 ```
 
 ### Scenario outcomes
