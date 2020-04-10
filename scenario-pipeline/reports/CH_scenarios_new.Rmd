@@ -265,7 +265,7 @@ We do not explicitly model the role of asymptomatic infection when calculating t
 
 ### Simulations agreement with epidemiological data up to April 8th
 
-```{r sims and data, fig.width=10, fig.height=3.5}
+```{r sims and data, fig.width=10, fig.height=3.5, fig.cap=capdata}
 national_data <- read_csv("reports/national_data.csv") %>% 
   select(date, cases, hosp_curr, deaths, icu_curr) %>% 
   rename(hosp = hosp_curr,
