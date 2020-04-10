@@ -21,7 +21,7 @@ option_list = list(
   optparse::make_option(c("-j", "--jobs"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-o", "--cores"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-n", "--nfilter"), action="store", default=10, type='numeric', help="Number of filtering iterations"),
-  optparse::make_option(c("-l", "--likelihood"), action="store", default='c-d-deltah', type='character', help="likelihood to be used for filtering"),
+  optparse::make_option(c("-l", "--likelihood"), action="store", default='d-deltah', type='character', help="likelihood to be used for filtering"),
   optparse::make_option(c("-w", "--downweight"), action="store", default=0, type='numeric', help="downweight ikelihood to be used for filtering")
 )
 opt <- optparse::parse_args(optparse::OptionParser(option_list=option_list))
@@ -101,7 +101,7 @@ closeAllConnections()
 
 cat("----- Done filtering, took", round(t3["elapsed"]/60), "mins \n")
 
-filter_stats <- readRDS(filter_filename)
+filter_dists <- readRDS(filter_filename)
 filter_stats <- filter_dists %>% 
   group_by(time, parset, var) %>% 
   summarise(mean = mean(value, na.rm = T),
@@ -118,9 +118,10 @@ plot_states <- c("tot_I", "Rt", state_names[str_detect(state_names, "a_|_curr")]
 
 # Load data
 data <- read_csv(glue("{opt$b}interm/data_{suffix}.csv"))
-
-p <- ggplot(filter_stats %>% filter(var %in% plot_states, parset == 1), aes(x = date)) +
-  # geom_ribbon(aes(ymin = q025, ymax = q975, fill = parset), alpha = .2) +
+write_csv(filter_stats, "scenario-pipeline/reports/filter_states.csv")
+write_csv(data, "scenario-pipeline/reports/national_data.csv")
+p <- ggplot(filter_stats %>% filter(var %in% plot_states, parset == 2), aes(x = date)) +
+  geom_ribbon(aes(ymin = q025, ymax = q975, fill = parset), alpha = .2) +
   geom_ribbon(aes(ymin = q25, ymax = q75, fill = parset), alpha = .2) +
   geom_point(data = data %>%
                rename(

@@ -319,7 +319,7 @@ We support our planning scenarios model with a modelling analysis of the epidemi
 
 **Inference** We fit the model to cantonal-level data available from [OpenZH](https://github.com/openZH/covid_19). These include the current number of hospitalized COVID patients, and the cumulative numbers of deaths, cases and hospital discharges. The latter was not available in all cantons. Time-varying transmission $R_0(t)$ was estimated following a similar approach than that in [@Cazelles2018], with assumptions on the natural history of SARS-CoV-2 detailed in the Methods section.
 
-We choose to only use deaths and hospitalizations for model estimation to the challenges linked to COVID-19 case identification and heterogenous testing strategies adopted across cantons. The observation model is formulated as follows:
+We choose to only use deaths and hospitalizations for model estimation due to the challenges linked to COVID-19 case identification and heterogenous testing strategies adopted across cantons. The observation model is formulated as follows:
 
 $$
 \begin{aligned}
