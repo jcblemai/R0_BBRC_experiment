@@ -16,7 +16,7 @@ nfiles <- config$nsimulations## set to NULL or the actual number of sim files to
 reportStateUSPS <- "CH" ## e.g. CA
 
 col_to_filter_sim <- "NhospCurr"
-col_to_filter_data<- c("NincidDeath" = "deaths", "NhospCurr" = "current_hosp")
+col_to_filter_data<- c("NincidDeath" = "deaths", "NhospCurr" = "hosp_curr")
 
 n_sim_target <- nfiles
 
