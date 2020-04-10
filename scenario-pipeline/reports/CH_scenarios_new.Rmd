@@ -12,6 +12,9 @@ css: report.css
 ---
 Updated `r Sys.Date()`
 
+Joseph Lemaitre (École Polytechnique Fédérale de Lausanne, EPFL), Javier Perez-Saez (Johns Hopkins University, JHU), Andrew Azman (JHU), Andrea Rinaldo (EPFL), Jacques Fellay (EPFL).
+
+
 # {.tabset}
 **FOR PLANNING PURPOSES ONLY: NOT A FORECAST**
 
@@ -99,12 +102,14 @@ We consider three planning scenarios:
 
 are held up until May 1st. We fitted the impact of these moderately restrictive non-pharmaceutical interventions (NPIs) on cases, hospitalizations and deaths per canton (see Inference tab above). For May 1 on, we assume a return to baseline, early epidemic level transmissibility for the foreseeable future.
 
-- **Test and Isolate (50-60)**, which assumes that current measures are replaced from May 1 on by a test and isolation protocol, where the infectious period is shortened by 50% for 60% of cases infected. This protocol is accompagnied by measures that reduce the R0 to 70% of the baseline, early epidemic level of transmissibility.
+- **Test and Isolate (35-30)**, which assumes that current measures are replaced from May 1 on by a test and isolation protocol, where the infectious period is shortened by 35% for 30% of cases infected. This protocol is accompanied by measures that reduce the R0 to 70% of the baseline, early epidemic level of transmissibility.
 
-- **Test and Isolate (35-30)**, which assumes that current measures are replaced from May 1 on by a test and isolation protocol, where the infectious period is shortened by 35% for 30% of cases infected. This protocol is accompagnied by measures that reduce the R0 to 70% of the baseline, early epidemic level of transmissibility.
+- **Test and Isolate (50-60)**, which assumes that current measures are replaced from May 1 on by a test and isolation protocol, where the infectious period is shortened by 50% for 60% of cases infected. This protocol is accompanied by measures that reduce the R0 to 70% of the baseline, early epidemic level of transmissibility.
+
+
 
 ```{r rmd_formatting}
-scen_desc_str <- "three scenarios with current measures until May 1st followed by 1) a return to baseline transmissiblity, 2) targeted testing and isolation (50-60)  and 3) targeted testing and isolation (35-30)."
+scen_desc_str <- "three scenarios with current measures until May 1st followed by 1) a return to baseline transmissiblity, 2) targeted testing and isolation (50-60)  and 3) targeted testing and isolation (35-30)"
 fig_counter <- 1
 tab_counter <- 1
 ```
@@ -137,8 +142,8 @@ ph <- plot_ts_hosp_state_sample(state_hosp_totals,
                                 scenario_cols = config$report$formatting$scenario_colors,
                                 sim_start_date = config$start_date,
                                 sim_end_date = config$end_date,
-                                pdeath_level = "") + 
-  geom_vline(aes(xintercept = release_date), lty = 2, size = .5)
+                                pdeath_level = "") #+ 
+  #geom_vline(aes(xintercept = release_date), lty = 2, size = .5)
 
 pu <- plot_ts_hosp_state_sample(state_hosp_totals,
                                 varname = "NICUCurr",
@@ -147,8 +152,8 @@ pu <- plot_ts_hosp_state_sample(state_hosp_totals,
                                 scenario_cols = config$report$formatting$scenario_colors,
                                 sim_start_date = config$start_date,
                                 sim_end_date = config$end_date,
-                                pdeath_level = "") + 
-  geom_vline(aes(xintercept = release_date), lty = 2, size = .5)
+                                pdeath_level = "") #+ 
+  #geom_vline(aes(xintercept = release_date), lty = 2, size = .5)
 
 
 grid.arrange(ph, pu, ncol = 2)
@@ -210,26 +215,30 @@ picu <- ggplot(icu_exceed, aes(x = time, y = exceed_frac * 100, color = icu_thre
   facet_wrap(~ scenario_name) +
   theme_minimal() +
   scale_color_brewer(palette = "Reds", direction = -1) +
-  labs(x = "", y = "Percentage of simualtions \n exceeding threshold") +
-  guides(color = guide_legend(title = "ICU capacity"))
+  labs(x = "", y = "Percentage of simulations \n exceeding threshold") +
+  guides(color = guide_legend(title = "ICU capacity")) +
+  xlim(c(as.Date(sim_start_date), as.Date(sim_end_date)))
 
 plot(picu)
-capicu <- paste0("**Fig. ", fig_counter, "**: Probability of exceedence of ICU capacity threholds for ", scen_desc_str, ".")
+capicu <- paste0("**Fig. ", fig_counter, "**: Probability of exceedence of ICU capacity thresholds for ", scen_desc_str, ".")
 fig_counter <- fig_counter + 1
 ```
 
-### Contributors
-Prepared by Joseph Lemaitre (École Polytechnique Fédérale de Lausanne, EPFL), Javier Perez-Saez (Johns Hopkins University, JHU), Andrew Azman (JHU), Andrea Rinaldo (EPFL), Jacques Fellay (EPFL).
+### Software
 
 **Using the Pipeline from Johns Hopkins [ID Dynamics Working Group](http://www.iddynamics.jhsph.edu/):** 
- JHU: Kyra H. Grantz, Joshua Kaminsky,  Lindsay T. Keegan, Steve Lauer,  Elizabeth C. Lee, Justin Lessler, Hannah R. Meredith, Shaun A. Truelove. 
- EPFL: Joseph Lemaitre
- University of Utah: Lindsay T. Keegan
- Developper without affiliations: Sam Shah, Josh Wills
  
- [Open-Source Software](https://github.com/HopkinsIDD/COVIDScenarioPipeline)
+   - JHU: Kyra H. Grantz, Joshua Kaminsky,  Lindsay T. Keegan, Steve Lauer,  Elizabeth C. Lee, Justin Lessler, Hannah R. Meredith, Shaun A. Truelove. 
+ 
+   - EPFL: Joseph Lemaitre
+ 
+   - University of Utah: Lindsay T. Keegan
+ 
+   - Developper without affiliations: Sam Shah, Josh Wills
+ 
+   - [Open-Source Software](https://github.com/HopkinsIDD/COVIDScenarioPipeline)
 
-**Contact:** [joseph.lemaitre@epfl.ch](<mailto:joseph.lemaitre@epfl.ch?subject=Hyperlinks>), [jacques.fellay@epfl.ch](<mailto:jacques.fellay@epfl.chh?subject=Hyperlinks>)
+<!--**Contact:** [joseph.lemaitre@epfl.ch](<mailto:joseph.lemaitre@epfl.ch?subject=Hyperlinks>), [jacques.fellay@epfl.ch](<mailto:jacques.fellay@epfl.chh?subject=Hyperlinks>)-->
 
 ## Methods
 
@@ -258,19 +267,6 @@ We use simple statistical models using the cumulative distribution of times to h
 
 Uncertain parameters include the length of the serial interval, $R_0$ and the probability of hospitalization. Simulated time series of incidence and hospitalizations are based on 30’000 random draws from reasonable bounds of the parameter values (Table 1). Simulated trajectories are then resampled based on the degree to which they match the observed time series of cumulative hospitalizations, which gives a set of simulations which represent well the observed data.
 
-
-### Limitations
-We note several limitations to our work, among which:
-
-There remains considerable uncertainty around some of the key epidemiologic features of COVID-19, including the average duration of infectiousness and time to recovery or death. We have used commonly accepted and well supported estimates as well as hospitalization data from the canton of Vaud up till April 8th, and believe that they are appropriate for planning purposes.
-
-We assume equal risk of infection and progression to hospitalization or death among all individuals in the country at a given time point. There is evidence of age-specific differences in clinical burden and perhaps in susceptibility to infection that are not (yet) considered here. 
-
-We do not explicitly model the role of asymptomatic infection when calculating the number of expected hospitalizations. All infectious individuals are considered at risk of hospitalization, though some may recover or die prior to hospitalization. A substantial asymptomatic burden may reduce the number of hospitalized cases.
-
-
-### Simulations agreement with epidemiological data up to April 8th
-
 ```{r sims and data, fig.width=10, fig.height=3.5, fig.cap=capdata}
 national_data <- read_csv("reports/national_data.csv") %>% 
   select(date, cases, hosp_curr, deaths, icu_curr) %>% 
@@ -288,6 +284,18 @@ plot(p)
 capdata <- paste0("**Fig. ", fig_counter, "**: Simulation envelopes of the Current Measures scenario up to April 8th. Black dots is the data as made available by [OpenZH](https://github.com/openZH/covid_19). The shaded area show the 95 percentile and the bright area the 50 percentile.")
 fig_counter <- fig_counter + 1
 ```
+
+### Limitations
+We note several limitations to our work, among which:
+
+There remains considerable uncertainty around some of the key epidemiologic features of COVID-19, including the average duration of infectiousness and time to recovery or death. We have used commonly accepted and well supported estimates as well as hospitalization data from the canton of Vaud up till April 8th, and believe that they are appropriate for planning purposes.
+
+We assume equal risk of infection and progression to hospitalization or death among all individuals in the country at a given time point. There is evidence of age-specific differences in clinical burden and perhaps in susceptibility to infection that are not (yet) considered here. 
+
+We do not explicitly model the role of asymptomatic infection when calculating the number of expected hospitalizations. All infectious individuals are considered at risk of hospitalization, though some may recover or die prior to hospitalization. A substantial asymptomatic burden may reduce the number of hospitalized cases.
+
+
+
 
 
 
