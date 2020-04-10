@@ -4,7 +4,7 @@ library(stringr)
 if (T) {         # or whatever values you use to test.
   ti_str <- '2020-01-31'
   tf_str <- '2020-08-31'
-  foldername <- 'data/ch/'
+  foldername <- '../data/ch/'
   setupname <- 'Current'
 }
 
@@ -27,7 +27,8 @@ change_R0_mean <- with(filter(r0_reduction, var == "r0change"), mean(mean))
 change_R0_sd <- getSd(change_R0_mean, change_R0_range[1], change_R0_range[2])
 
 # Assume reduction on the 20th of March
-start_descent <- as.Date("2020-03-15")
+#start_descent <- as.Date("2020-03-15")
+start_descent <- as.Date("2020-03-08")
 end_descent <- as.Date("2020-03-22")
 start_ascent <- as.Date("2020-05-01")
 end_ascent <- as.Date("2020-05-03")

@@ -16,7 +16,7 @@ nfiles <- config$nsimulations## set to NULL or the actual number of sim files to
 reportStateUSPS <- "CH" ## e.g. CA
 
 col_to_filter_sim <- "NhospCurr"
-col_to_filter_data<- c("NincidDeath" = "deaths", "NhospCurr" = "current_hosp")
+col_to_filter_data<- c("NincidDeath" = "deaths", "NhospCurr" = "hosp_curr")
 
 n_sim_target <- nfiles
 
@@ -64,7 +64,7 @@ ll_data <- foreach(s = unique(state_hosp_totals$usim_num),
   
   inner_join(sim, obs) %>% 
     na.omit() %>% 
-    summarise(ll = logLikCases(obs, sim + 1, k = 1, alpha = 1, "nbinom")) %>% 
+    summarise(ll = logLikCases(obs, sim + 1, k = 5, alpha = 1, "nbinom")) %>% 
     mutate(usim_num = s)
 }
 

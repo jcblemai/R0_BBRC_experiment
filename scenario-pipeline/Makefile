@@ -10,7 +10,7 @@ CONFIG=config.yml
 
 .files:
 	mkdir $@
-report:  .files/100_hospitalization_Current_low .files/100_hospitalization_Current_med .files/100_hospitalization_Current_high .files/100_hospitalization_Stopped_low .files/100_hospitalization_Stopped_med .files/100_hospitalization_Stopped_high .files/100_hospitalization_TestIsolate_low .files/100_hospitalization_TestIsolate_med .files/100_hospitalization_TestIsolate_high
+report: .files/100_simulation_Current .files/100_hospitalization_Current_low .files/100_hospitalization_Current_med .files/100_hospitalization_Current_high .files/100_simulation_Stopped .files/100_hospitalization_Stopped_low .files/100_hospitalization_Stopped_med .files/100_hospitalization_Stopped_high .files/100_simulation_TestIsolate .files/100_hospitalization_TestIsolate_low .files/100_hospitalization_TestIsolate_med .files/100_hospitalization_TestIsolate_high
 	Rscript compile_Rmd.R
 .files/100_simulation_Current: .files 
 	$(PYTHON) $(PIPELINE)/simulate.py -c $(CONFIG) -s Current -n 100 -j $(NCOREPER)
