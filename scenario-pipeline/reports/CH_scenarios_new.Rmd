@@ -102,9 +102,9 @@ We consider three planning scenarios:
 
 are held up until May 1st. We fitted the impact of these moderately restrictive non-pharmaceutical interventions (NPIs) on cases, hospitalizations and deaths per canton (see Inference tab above). For May 1 on, we assume a return to baseline, early epidemic level transmissibility for the foreseeable future.
 
-- **Test and Isolate (35-30)**, which assumes that current measures are replaced from May 1 on by a test and isolation protocol, where the infectious period is shortened by 35% for 30% of cases infected. This protocol is accompanied by measures that reduce the R0 to 70% of the baseline, early epidemic level of transmissibility.
+- **Test and Isolate (35-30)**, which assumes that current measures are replaced from May 1 on by a test and isolation protocol, where the infectious period is shortened by 35% for 30% of cases infected. This protocol is accompanied by measures that reduce the $R_0$ to 70% of the baseline, early epidemic level of transmissibility.
 
-- **Test and Isolate (50-60)**, which assumes that current measures are replaced from May 1 on by a test and isolation protocol, where the infectious period is shortened by 50% for 60% of cases infected. This protocol is accompanied by measures that reduce the R0 to 70% of the baseline, early epidemic level of transmissibility.
+- **Test and Isolate (50-60)**, which assumes that current measures are replaced from May 1 on by a test and isolation protocol, where the infectious period is shortened by 50% for 60% of cases infected. This protocol is accompanied by measures that reduce the $R_0$ to 70% of the baseline, early epidemic level of transmissibility.
 
 
 
