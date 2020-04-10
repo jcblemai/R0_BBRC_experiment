@@ -151,9 +151,9 @@ printTable <- function(df, scenario, tabnum = 1, col_headers, var_dict, time_hor
 # Time series ----------------------------------------------------------------
 make_combined_plot <- function(df, data, timecut = Inf, nrow = 2) {
   cval <- c("#1C86EE", "#EE2C2C", "#8A2BE2", "#EEAD0E")
-  lab_dict <- c("cases" = "Cumulative incidence",
+  lab_dict <- c("cases" = "Case incidence",
                 "hosp" = "Current hospitalizations",
-                "deaths" = "Cumulative deaths",
+                "deaths" = "Death incidence",
                 "icu" = "Current ICUs")
   ggplot() +
     geom_ribbon(data = filter(df, time < timecut),

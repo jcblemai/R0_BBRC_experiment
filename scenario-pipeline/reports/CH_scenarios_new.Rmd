@@ -1,5 +1,5 @@
 ---
-title: "Switzerland Scenario Report"
+title: "Switzerland COVID-19 Scenario Report"
 author: ""
 output:
   html_document:
@@ -117,11 +117,14 @@ state_hosp_totals <- load_hosp_geocombined_totals(scn_dirs,
                                                   name_filter = "csv") %>% 
   mutate(pdeath = "", scenario_name = factor(scenario_name, levels = scenario_labels))
 
+# !!!! Add deaths asusming 50% ratio !!!! 
+state_hosp_totals$NincidDeath <- state_hosp_totals$NincidDeath * 2
+
 # Load resampling file
 resampled_sims <- read_csv("reports/resample_sims.csv")
 
-# state_hosp_totals <- inner_join(state_hosp_totals , resampled_sims) %>% 
-# select(-sim_num) %>% rename(sim_num = new_sim_num)
+state_hosp_totals <- inner_join(state_hosp_totals , resampled_sims) %>%
+  select(-sim_num) %>% rename(sim_num = new_sim_num)
 ```
 
 ### Scenario outcomes
@@ -202,7 +205,7 @@ hosp_agg_stats_tab %>%
 icu_exceed <- computeProbExceedence(state_hosp_totals, icu_threshs) %>%
   mutate(icu_thresh = factor(icu_thresh))
 
-ggplot(icu_exceed, aes(x = time, y = exceed_frac * 100, color = icu_thresh)) +
+picu <- ggplot(icu_exceed, aes(x = time, y = exceed_frac * 100, color = icu_thresh)) +
   geom_line() +
   facet_wrap(~ scenario_name) +
   theme_minimal() +
@@ -210,6 +213,7 @@ ggplot(icu_exceed, aes(x = time, y = exceed_frac * 100, color = icu_thresh)) +
   labs(x = "", y = "Percentage of simualtions \n exceeding threshold") +
   guides(color = guide_legend(title = "ICU capacity"))
 
+plot(picu)
 capicu <- paste0("**Fig. ", fig_counter, "**: Probability of exceedence of ICU capacity threholds for ", scen_desc_str, ".")
 fig_counter <- fig_counter + 1
 ```
@@ -224,7 +228,7 @@ Prepared by Joseph Lemaitre (Ecole Polytechnique Fédérale de Lausanne, EPFL), 
 ## Methods
 
 ```{r r0}
-r0 <- readRDS("reports/R0_reduction.csv") %>%
+r0 <- read_csv("reports/R0_reduction.csv") %>%
   filter(ll_comp == "d-deltah", ShortName == "CH")
 ```
 
@@ -263,9 +267,9 @@ We do not explicitly model the role of asymptomatic infection when calculating t
 
 ```{r sims and data, fig.width=10, fig.height=3.5}
 national_data <- read_csv("reports/national_data.csv") %>% 
-  select(date, cases, current_hosp, deaths, current_icu) %>% 
-  rename(hosp = current_hosp,
-         icu = current_icu) %>% 
+  select(date, cases, hosp_curr, deaths, icu_curr) %>% 
+  rename(hosp = hosp_curr,
+         icu = icu_curr) %>% 
   # mutate(cases = cumsum(cases)) %>%
   select(date, cases, hosp, deaths, icu) %>% 
   gather(var, value, -date) %>% 
@@ -273,8 +277,8 @@ national_data <- read_csv("reports/national_data.csv") %>%
 
 quantiles_sims <- computeQuantiles(filter(state_hosp_totals, scenario_num == 1))
 
-make_combined_plot(quantiles_sims, national_data, time_cut, nrow =1)
-
+p <- make_combined_plot(quantiles_sims, national_data, time_cut, nrow =1)
+plot(p)
 capdata <- paste0("**Fig. ", fig_counter, "**: Simulation envelops of current scenario up to April 8th.")
 fig_counter <- fig_counter + 1
 ```
@@ -291,7 +295,7 @@ We took parameter estimates on the effectiveness of interventions from Milwaukee
 
 - Approximate generation time is based on data from [@Bi2020]
 
-## Inference
+## Inference {#inference}
 We support the development of our planning scenarios with a modelling analysis of the epidemiological data available up to April 8th. We aim at inferring time-varying estimates $R_0$ at the national level following the progressive introduction of NPIs from March 2nd to March 20th.
 
 ### Inference methods
