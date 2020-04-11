@@ -11,7 +11,8 @@ spatial_setup:
   geodata: geodata.csv
   shapefile_name: shp/ch.shp
   shapefile: shp/ch.shp # Two is redundant.  We should fix this
-  mobility: mobility.txt
+  #mobility: mobility.txt
+  mobility: mobility_matrix_adj.csv
   popnodes: pop2018
   nodenames: ShortName  # Name of the column in geodata with uniquely name of nodes
   include_in_report: CH
