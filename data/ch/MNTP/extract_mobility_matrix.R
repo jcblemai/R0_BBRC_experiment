@@ -30,17 +30,18 @@ mobmat <- foreach(ms = isplit(mobility_matrix, mobility_matrix$N_KT.from),
           ms$value %>% 
             group_by(N_KT.to) %>% 
             summarise(amount = sum(amount)) %>% 
-            mutate(N_KT.from = ms$key[[1]])
+            mutate(N_KT.from = ms$key[[1]]) %>% 
+            filter(N_KT.to != ms$key[[1]])
         } 
 
 mobmatfinal <- filter(mobmat, amount > amount_thresh) %>% 
   select(N_KT.from, N_KT.to, amount) %>% 
   set_colnames(c("ori", "dest", "amount")) %>% 
-  filter(!str_detect(ori, "Enk"), !str_detect(dest, "emk"))
+  filter(!str_detect(ori, "Enk|LIE"), !str_detect(dest, "Enk|LIE"))
 
 write_csv(mobmatfinal, path = "data/ch/mobility_matrix_adj.csv")
 
-ggplot(mobmatfinal, aes(x = ori, y = dest, fill = amount)) +
-  geom_raster() +
-  scale_fill_viridis_c()
+# ggplot(mobmatfinal, aes(x = ori, y = dest, fill = amount)) +
+#   geom_raster() +
+#   scale_fill_viridis_c()
 
