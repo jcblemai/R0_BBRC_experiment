@@ -71,7 +71,7 @@ load_config <- function(fname) {
   }
 }
 
-buildSuffix <- function(name, place, lik_components, params_to_fit){
+buildSuffix <- function(name, place, lik_components, sdfrac, params_to_fit){
   param_suffix <- ifelse(is.null(params_to_fit), '', str_c(names(params_to_fit), collapse = '-'))
-  suffix <- glue("{name}_{place}_{str_c(lik_components, collapse = '-')}_{param_suffix}")
+  suffix <- glue("{name}_{place}_{str_c(lik_components, collapse = '-')}_{param_suffix}_{sdfrac}")
 }

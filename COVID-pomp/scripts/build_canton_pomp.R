@@ -21,7 +21,7 @@ option_list = list(
   optparse::make_option(c("-j", "--jobs"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-o", "--cores"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-r", "--run_level"), action="store", default=1, type='numeric', help="run level for MIF"),
-  optparse::make_option(c("-p", "--place"), action="store", default='AR', type='character', help="name of place to be run, a Canton abbrv. in CH"),
+  optparse::make_option(c("-p", "--place"), action="store", default='CH', type='character', help="name of place to be run, a Canton abbrv. in CH"),
   optparse::make_option(c("-l", "--likelihood"), action="store", default='c-d-deltah', type='character', help="likelihood to be used for filtering"),
   optparse::make_option(c("-w", "--downweight"), action="store", default=0, type='numeric', help="downweight ikelihood to be used for filtering")
 )
@@ -51,7 +51,11 @@ lik <- str_c(str_c("ll_", lik_components), collapse = "*")
 downweight <- opt$downweight
 # Test for cases in the likelihood
 ll_cases <- "c" %in% lik_components
-suffix <- buildSuffix(config$name, canton, lik_components, config$parameters_to_fit)
+suffix <- buildSuffix(name = config$name, 
+                     place = canton,
+                     lik_components = lik_components, 
+                     sdfrac = config$sdfrac*100, 
+                     params_to_fit = config$parameters_to_fit)
 
 
 # Level of detail on which to run the computations
@@ -69,8 +73,8 @@ data_file <- glue("data/ch/cases/covid_19/fallzahlen_kanton_total_csv_v2/COVID19
 
 cases_data <- read_csv(data_file, col_types = cols()) %>% 
   filter(date < "2020-04-08") %>%
-  mutate(cases = c(NA, diff(ncumul_conf)),
-         deaths = c(NA, diff(ncumul_deceased)),
+  mutate(cases = c(ncumul_conf[1], diff(ncumul_conf)),
+         deaths = c(ncumul_deceased[1], diff(ncumul_deceased)),
          cum_deaths = ncumul_deceased,
          hosp_incid = new_hosp,
          icu_curr = current_icu,
@@ -82,11 +86,28 @@ cases_data <- read_csv(data_file, col_types = cols()) %>%
 cases_data$cases[cases_data$cases < 0] <- NA
 
 if (canton == "CH") {
-  cases_data$delta_ID <- NA
-  cases_ofsp <- read_csv(glue("data/ch/cases_CH.csv")) %>% 
-    mutate(date = as.Date(date, format = "%m/%d/%Y"))
-  cases_data <- select(cases_data, -cases) %>% 
-    left_join(cases_ofsp)
+  # load national-level estimates from Probst's github
+  dfiles <- dir("data/ch/cases/covid19-cases-switzerland/",
+                pattern = "openzh.csv",
+                full.names = T)
+  ch_colnames <- list(cum_cases = sym("cases"),
+                      cum_deaths = sym("fatalities"),
+                      hosp_curr = sym("hospitalized"),
+                      icu_curr = sym("icu"),
+                      cum_discharged = sym("released"))
+  
+  cases_data <- purrr::map(dfiles, function(x) read_csv(x) %>% 
+                select(Date, CH) %>% 
+                magrittr::set_colnames(c("date", str_extract(x, "(?<=19_)[a-z]+(?=_)")))) %>% 
+    reduce(inner_join) %>% 
+    rename(!!!ch_colnames) %>% 
+    arrange(date) %>% 
+    mutate(cases = c(cum_cases[1], diff(cum_cases)),
+           deaths = c(cum_deaths[1], diff(cum_deaths)),
+           discharged = c(cum_discharged[1], diff(cum_discharged)),
+           delta_hosp = c(hosp_curr[1], diff(hosp_curr)),
+           delta_ID = delta_hosp + discharged,
+           hosp_incid = NA)
 }
 
 data <- select(cases_data, 
@@ -98,8 +119,7 @@ start_date <- with(data,
                    min(c(date[which(!is.na(cases))[1]] - 5, 
                          date[which(!is.na(hosp_curr))[1]] - 8)))#as.Date("2020-02-20")
 start_date <- cases_data$date[1] - 5
-
-end_date <- as.Date("2020-04-08")
+end_date <- max(data$date + 5)
 
 # Add rows
 data <- rbind(tibble(date = seq.Date(start_date, min(data$date), by = "1 days")) %>% 
@@ -117,7 +137,7 @@ t_start <- dateToYears(start_date)
 t_end <- dateToYears(end_date)
 
 geodata <- read_csv(config$setup, col_types = cols())
-# initialize empty paramter vector
+# initialize empty parameter vector
 params <- set_names(rep(0, length(param_names)), param_names)
 input_params <- unlist(yaml::read_yaml(glue("{opt$b}{config$parameters}")))
 params[param_fixed_names] <- as.numeric(input_params[param_fixed_names])
@@ -228,14 +248,19 @@ min_param_val <- 1e-5
 parameter_bounds <- tribble(
   ~param, ~lower, ~upper,
   # Process noise
-  "std_X", log(1.3), log(3), #in log-scale
-  # Measurement model
-  "k", .1, 10,
-  "epsilon", 0.2, 0.5,
+  "std_X", .5, 2, #in log-scale
   # Initial conditions
   "I_0", 10/params["pop"], 100/params["pop"],
   "R0_0", 1.9, 2.5
 )
+
+if(ll_cases) {
+  parameter_bounds <- rbind(parameter_bounds,
+                           tribble(~param, ~lower, ~upper,
+                                   # Measurement model
+                                   "k", .1, 10,
+                                   "epsilon", 0.2, 0.5))
+}
 
 if (!is.null(config$parameters_to_fit)) {
   # additional params to fit
@@ -247,10 +272,6 @@ if (!is.null(config$parameters_to_fit)) {
   parameter_bounds <- rbind(parameter_bounds, other_bounds)
 }
 
-if (!ll_cases) {
-  parameter_bounds <- parameter_bounds %>% filter(!(param %in% c("k", "epsilon")))
-}
-
 # convert to matrix for ease
 parameter_bounds <- set_rownames(as.matrix(parameter_bounds[, -1]), parameter_bounds[["param"]])
 
@@ -260,12 +281,12 @@ init_params <- sobolDesign(lower = parameter_bounds[, "lower"],
                            nseq =  sir_Ninit_param[run_level]) 
 
 # convert certain parameters back to log-scale 
-param_logbound_names <- c("std_X")
-init_params[, param_logbound_names] <- exp(init_params[, param_logbound_names])
+# param_logbound_names <- c("std_X")
+# init_params[, param_logbound_names] <- exp(init_params[, param_logbound_names])
 
 # bind with the fixed valued parameters
 init_params <- cbind(init_params, 
-                     matrix(rep(params[param_fixed_names],
+                     matrix(rep(params[!(names(params) %in% rownames(parameter_bounds))],
                                 each = sir_Ninit_param[run_level]),
                             nrow = sir_Ninit_param[run_level]) %>% 
                        set_colnames(param_fixed_names))
@@ -281,7 +302,7 @@ if (!is.null(config$parameters_to_fit)) {
   other_rw <- ""
 }
 
-rw_text <- glue("rw.sd( std_X  = {rw.sd_param['regular']}
+rw_text <- glue("rw.sd( std_X  =ifelse(time>={tvary}, {rw.sd_param['regular']}, 0) 
                 , k  = {ifelse(ll_cases, rw.sd_param['regular'], 0)}
                 , epsilon   = {ifelse(ll_cases, rw.sd_param['regular'], 0)}
                  , I_0  = ivp({rw.sd_param['ivp']})
@@ -338,3 +359,4 @@ write_csv(liks, path = ll_filename, append = file.exists(ll_filename))
 
 cat("----- Done LL, took", round(t2["elapsed"]/60), "mins \n")
 
+stopCluster(cl)

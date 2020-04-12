@@ -2,6 +2,7 @@ library(dplyr)
 library(purrr)
 library(readr)
 library(stringr)
+library(ggplot2)
 library(tidyr)
 library(doSNOW)
 library(pomp)
@@ -15,7 +16,7 @@ library(glue)
 select <- dplyr::select
 option_list = list(
   optparse::make_option(c("-c", "--config"), action="store", default='pomp_config.yaml', type='character', help="path to the config file"),
-  optparse::make_option(c("-p", "--place"), action="store", default='CH', type='character', help="name of place to be run, a Canton abbrv. in CH"),
+  optparse::make_option(c("-p", "--place"), action="store", default='VD', type='character', help="name of place to be run, a Canton abbrv. in CH"),
   optparse::make_option(c("-a", "--asindex"), action="store", default=0, type='numeric', help="whether to use the index of a slurm array"),
   optparse::make_option(c("-b", "--basepath"), action="store", default="COVID-pomp/", type='character', help="base path"),
   optparse::make_option(c("-j", "--jobs"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
@@ -50,7 +51,11 @@ lik <- str_c(str_c("ll_", lik_components), collapse = "*")
 downweight <- opt$downweight
 # Test for cases in the likelihood
 ll_cases <- "c" %in% lik_components
-suffix <- buildSuffix(config$name, canton, lik_components, config$parameters_to_fit)
+suffix <- buildSuffix(name = config$name, 
+                      place = canton,
+                      lik_components = lik_components, 
+                      sdfrac = config$sdfrac*100, 
+                      params_to_fit = config$parameters_to_fit)
 
 filter_filename <- glue("{opt$b}results/filtered_{suffix}.rds")
 
@@ -62,7 +67,6 @@ cl <- makeCluster(opt$cores)
 registerDoSNOW(cl)
 
 # Filter --------------------------------------------------------------------
-
 best_params <- liks %>%
   arrange(desc(loglik)) %>% 
   # filter(loglik > max(loglik) - 4) %>% 
@@ -118,9 +122,13 @@ plot_states <- c("tot_I", "Rt", state_names[str_detect(state_names, "a_|_curr")]
 
 # Load data
 data <- read_csv(glue("{opt$b}interm/data_{suffix}.csv"))
-write_csv(filter_stats, "scenario-pipeline/reports/filter_states.csv")
-write_csv(data, "scenario-pipeline/reports/national_data.csv")
-p <- ggplot(filter_stats %>% filter(var %in% plot_states, parset == 2), aes(x = date)) +
+
+if (canton == "CH") {
+  write_csv(filter_stats, "scenario-pipeline/reports/filter_states.csv")
+  write_csv(data, "scenario-pipeline/reports/national_data.csv")
+}
+
+p <- ggplot(filter_stats %>% filter(var %in% plot_states), aes(x = date)) +
   geom_ribbon(aes(ymin = q025, ymax = q975, fill = parset), alpha = .2) +
   geom_ribbon(aes(ymin = q25, ymax = q75, fill = parset), alpha = .2) +
   geom_point(data = data %>%
