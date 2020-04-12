@@ -23,13 +23,15 @@ tw_right <- as.Date(config$timewindow_R0$right)
                    
 # Load results -----------------------------------------------------------------
 
-ffilter <- list.files(path = "COVID-pomp/results/", pattern = "filtered_", full.names = TRUE) %>% 
+ffilter <- list.files(path = "COVID-pomp/results/good_run/", 
+                      pattern = "filtered_", full.names = TRUE) %>% 
   .[str_detect(., ".rds")] %>% 
   .[str_detect(., str_c(places_to_analyze, collapse = "|"))]
 
 # Get results
 states_to_plot <- c("tot_I", "Rt", "D", "H_curr", "U_curr")
-sims <- getStates(ffilter, states_to_plot) %>% filter(ll_comp == config$likelihoods$to_plot, !is.na(value))
+sims <- getStates(ffilter, states_to_plot) %>% 
+  filter(ll_comp == config$likelihoods$to_plot, !is.na(value))
 # Extract statistics
 filterstats <- computeFilterStats(sims)  %>% filter( !is.nan(mean))
 r0_reduction <- computeR0Reduction(filter(sims, var == "Rt"), 

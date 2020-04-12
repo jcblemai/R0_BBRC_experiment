@@ -22,7 +22,7 @@ getStates <- function(flist, states) {
                      .[(length(.)-1)] %>% 
                      str_replace("\\.rds", "")
                    res <- readRDS(fres)
-                   dplyr::filter(res, res$var %in% states, parset == 1) %>% 
+                   dplyr::filter(res, res$var %in% states) %>% 
                      mutate(ll_comp = ll_comp)
                  }
   
@@ -65,16 +65,16 @@ computeTimeToOne <- function(value, dates, date_start) {
 computeR0Reduction <- function(filter_data, tw_left, tw_right, date_start) {
   filter_data %>% 
     mutate(date = yearsToDate(time)) %>%
-    group_by(ShortName, it, ll_comp) %>% 
+    group_by(ShortName, it, ll_comp, parset) %>% 
     summarise(r0_right = singleR0value(value, time, dateToYears(tw_right[1]), dateToYears(tw_right[2])),
               r0_left = singleR0value(value, time, dateToYears(tw_left[1]), dateToYears(tw_left[2])),
               r0change = r0_right/r0_left,
               t1 = computeTimeToOne(value, time, dateToYears(date_start))) %>%
-    group_by(ShortName, ll_comp) %>%
+    group_by(ShortName, ll_comp, parset) %>%
     mutate(t1frac = sum(!is.na(t1))/n()) %>% 
     ungroup() %>% 
-    gather(var, value, -ShortName, -it, -ll_comp) %>% 
-    group_by(ShortName, var, ll_comp) %>% 
+    gather(var, value, -ShortName, -it, -ll_comp, -parset) %>% 
+    group_by(ShortName, var, ll_comp, parset) %>% 
     summarise(
       mean = mean(value, na.rm = T),
       median = median(value, na.rm = T),
