@@ -57,7 +57,6 @@ suffix <- buildSuffix(name = config$name,
                      sdfrac = config$sdfrac*100, 
                      params_to_fit = config$parameters_to_fit)
 
-
 # Level of detail on which to run the computations
 run_level <- opt$run_level
 sir_Np <- c(1e3, 3e3, 3e3)
@@ -65,7 +64,6 @@ sir_Nmif <- c(2, 20, 150)
 sir_Ninit_param <- c(2, opt$jobs, opt$jobs)
 sir_NpLL <- c(1e3, 1e4, 1e4)
 sir_Nreps_global <- c(2, 5, 20)
-
 
 # Data ---------------------------------------------------------------
 
@@ -107,7 +105,8 @@ if (canton == "CH") {
            discharged = c(cum_discharged[1], diff(cum_discharged)),
            delta_hosp = c(hosp_curr[1], diff(hosp_curr)),
            delta_ID = delta_hosp + discharged,
-           hosp_incid = NA)
+           hosp_incid = NA,
+           delta_ID = NA)
 }
 
 data <- select(cases_data, 
@@ -248,10 +247,10 @@ min_param_val <- 1e-5
 parameter_bounds <- tribble(
   ~param, ~lower, ~upper,
   # Process noise
-  "std_X", .5, 2, #in log-scale
+  "std_X", .5, 1.5, #in log-scale
   # Initial conditions
   "I_0", 10/params["pop"], 100/params["pop"],
-  "R0_0", 1.9, 2.5
+  "R0_0", 1.8, 3
 )
 
 if(ll_cases) {
@@ -302,7 +301,7 @@ if (!is.null(config$parameters_to_fit)) {
   other_rw <- ""
 }
 
-rw_text <- glue("rw.sd( std_X  =ifelse(time>={tvary}, {rw.sd_param['regular']}, 0) 
+rw_text <- glue("rw.sd( std_X  =ifelse(time>={tvary}, {rw.sd_param['regular']}, {rw.sd_param['regular']/10}) 
                 , k  = {ifelse(ll_cases, rw.sd_param['regular'], 0)}
                 , epsilon   = {ifelse(ll_cases, rw.sd_param['regular'], 0)}
                  , I_0  = ivp({rw.sd_param['ivp']})
