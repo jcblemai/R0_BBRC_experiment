@@ -22,7 +22,7 @@ option_list = list(
   optparse::make_option(c("-j", "--jobs"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-o", "--cores"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-n", "--nfilter"), action="store", default=10, type='numeric', help="Number of filtering iterations"),
-  optparse::make_option(c("-l", "--likelihood"), action="store", default='d', type='character', help="likelihood to be used for filtering"),
+  optparse::make_option(c("-l", "--likelihood"), action="store", default='d-deltah', type='character', help="likelihood to be used for filtering"),
   optparse::make_option(c("-w", "--downweight"), action="store", default=0, type='numeric', help="downweight ikelihood to be used for filtering")
 )
 opt <- optparse::parse_args(optparse::OptionParser(option_list=option_list))
@@ -70,7 +70,7 @@ registerDoSNOW(cl)
 best_params <- liks %>%
   arrange(desc(loglik)) %>% 
   # filter(loglik > max(loglik) - 4) %>% 
-  select(-contains("log")) %>% 
+  select(-contains("log")) %>%
   slice(1:3)
 
 t3 <- system.time({
@@ -128,7 +128,10 @@ if (canton == "CH") {
   write_csv(data, "scenario-pipeline/reports/national_data.csv")
 }
 
-p <- ggplot(filter_stats %>% filter(var %in% plot_states), aes(x = date)) +
+p <- ggplot(filter_stats %>% 
+              filter(var %in% plot_states, parset ==3,
+                     time <= dateToYears(as.Date("2020-04-12"))), 
+            aes(x = date)) +
   geom_ribbon(aes(ymin = q025, ymax = q975, fill = parset), alpha = .2) +
   geom_ribbon(aes(ymin = q25, ymax = q75, fill = parset), alpha = .2) +
   geom_point(data = data %>%
@@ -143,7 +146,8 @@ p <- ggplot(filter_stats %>% filter(var %in% plot_states), aes(x = date)) +
                  a_deltaH = delta_hosp,
                  a_deltaID = delta_ID
                ) %>% 
-               gather(var, value, -date),
+               gather(var, value, -date) %>% 
+               mutate(time = dateToYears(date)),
              aes(y = value)) +
   facet_wrap(~var, scales = "free")  +
   theme_bw()

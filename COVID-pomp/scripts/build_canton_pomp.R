@@ -247,10 +247,10 @@ min_param_val <- 1e-5
 parameter_bounds <- tribble(
   ~param, ~lower, ~upper,
   # Process noise
-  "std_X", .5, 1.5, #in log-scale
+  "std_X", 2, 3.5, #in log-scale
   # Initial conditions
   "I_0", 10/params["pop"], 100/params["pop"],
-  "R0_0", 1.8, 3
+  "R0_0", 2.6, 2.8
 )
 
 if(ll_cases) {

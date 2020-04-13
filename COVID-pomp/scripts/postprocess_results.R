@@ -41,3 +41,11 @@ r0_reduction <- computeR0Reduction(filter(sims, var == "Rt"),
 
 saveRDS(filterstats, file = "COVID-pomp/results/filtered_states_all.rds")
 saveRDS(r0_reduction, file = "COVID-pomp/results/R0_reduction.rds")
+
+if (write4rep) {
+  filterstats %>% filter(paramset == 1, ShortName == "CH") %>% 
+    write_csv("scenario-pipeline/reports/filter_states.csv")
+  
+  r0_reduction %>% filter(paramset == 1, ShortName == "CH") %>% 
+    write_csv("scenario-pipeline/reports/R0_reduction.csv")
+}
