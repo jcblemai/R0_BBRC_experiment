@@ -470,7 +470,7 @@ var_dict <- c("D" = "Cumulative deaths",
               "a_deltaH" = "Hospitalization balance",
               "a_D" = "Death incidence",
               "a_I" = "Case incidence",
-              "tot_I" = "Cumulative cases")
+              "tot_I" = "Cumulative infections")
 
 
 pdata <- filter_stats %>%
