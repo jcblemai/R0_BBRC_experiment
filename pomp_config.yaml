@@ -1,6 +1,6 @@
 name: COVID_CH
 setup: data/ch/geodata.csv
-parameters: COVID-pomp/data/parameters.yaml
+parameters: data/parameters.yaml
 timewindow_R0:
   left: ["2020-03-01", "2020-03-10"]
   right: ["2020-03-29", "2020-04-05"]

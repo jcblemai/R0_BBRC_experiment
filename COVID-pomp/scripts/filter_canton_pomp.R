@@ -71,7 +71,7 @@ best_params <- liks %>%
   arrange(desc(loglik)) %>% 
   # filter(loglik > max(loglik) - 4) %>% 
   select(-contains("log")) %>%
-  slice(1:3)
+  slice(4)
 
 t3 <- system.time({
   filter_dists <- foreach(pari = iter(best_params, "row"),
@@ -129,7 +129,7 @@ if (canton == "CH") {
 }
 
 p <- ggplot(filter_stats %>% 
-              filter(var %in% plot_states, parset ==3,
+              filter(var %in% plot_states,
                      time <= dateToYears(as.Date("2020-04-12"))), 
             aes(x = date)) +
   geom_ribbon(aes(ymin = q025, ymax = q975, fill = parset), alpha = .2) +
