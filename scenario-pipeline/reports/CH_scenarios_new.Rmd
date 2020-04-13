@@ -100,8 +100,8 @@ We compared `r nscenarios` intervention scenarios for model simulations from `r 
 We consider three planning scenarios:
 
 - **Current Measures Stopped May 1st**, which assumes measures instituted in Switzerland:
-   + School closure on March 14,
-   + Physical distancing measures progressively established from March 14 to March 20. 
++ School closure on March 14,
++ Physical distancing measures progressively established from March 14 to March 20. 
 
 are held up until May 1st. We fitted the impact of these moderately restrictive non-pharmaceutical interventions (NPIs) on cases, hospitalizations and deaths per canton (see Inference tab above). For May 1 on, we assume a return to baseline, early epidemic level transmissibility for the foreseeable future.
 
@@ -142,7 +142,7 @@ for (i in 1:length(scn_dirs)) {
                                      #post_process = hosp_post_process,
                                      #geoid_len = geoid_len,
                                      #padding_char = padding_char
-                                     )
+  )
   rc[[i]]$scenario_num <- i
   rc[[i]]$scenario_label <- scenario_labels[[i]]
 }
@@ -163,7 +163,7 @@ ph <- plot_ts_hosp_state_sample(state_hosp_totals,
                                 sim_start_date = config$start_date,
                                 sim_end_date = config$end_date,
                                 pdeath_level = "") #+ 
-  #geom_vline(aes(xintercept = release_date), lty = 2, size = .5)
+#geom_vline(aes(xintercept = release_date), lty = 2, size = .5)
 
 pu <- plot_ts_hosp_state_sample(state_hosp_totals,
                                 varname = "NICUCurr",
@@ -173,7 +173,7 @@ pu <- plot_ts_hosp_state_sample(state_hosp_totals,
                                 sim_start_date = config$start_date,
                                 sim_end_date = config$end_date,
                                 pdeath_level = "") #+ 
-  #geom_vline(aes(xintercept = release_date), lty = 2, size = .5)
+#geom_vline(aes(xintercept = release_date), lty = 2, size = .5)
 
 
 grid.arrange(ph, pu, ncol = 2)
@@ -249,23 +249,23 @@ fig_counter <- fig_counter + 1
 ```{r maps, fig.width=12, fig.height=4, fig.cap=cap1icu}
 
 plot_geounit_attack_rate_map <- function (max,
-                                           geodata,
-                                           shp,
-                                           scenariolabel = config$report$formatting$scenario_labels[1],
-                                           popnodes = config$spatial_setup$popnodes,
-                                           viridis_palette = "plasma") {
-
+                                          geodata,
+                                          shp,
+                                          scenariolabel = config$report$formatting$scenario_labels[1],
+                                          popnodes = config$spatial_setup$popnodes,
+                                          viridis_palette = "plasma") {
+  
   shp$geoid <- as.character(shp$shortname)
-
+  
   #to_plt <- max %>%
   #  dplyr::filter(scenario_label == scenariolabel) 
   #%>%
-   # left_join(geodata) %>%
+  # left_join(geodata) %>%
   #  dplyr::rename(pop = !!popnodes)
   #%>%
-   # group_by(geoid) %>%
+  # group_by(geoid) %>%
   #  dplyr::summarise(attack_rate=mean(N/pop)*10000) %>%
-   # ungroup
+  # ungroup
   
   plot_shp <- left_join(shp, max, by="geoid")
   
@@ -283,32 +283,32 @@ plot_geounit_attack_rate_map <- function (max,
           panel.grid.minor = element_blank(),
           panel.border = element_blank(),
           axis.ticks.y=element_blank())
-    return(rc)
+  return(rc)
 }
 
 bed_data <- read.csv('../data/ch/hospital-data/ICU_clean.csv') %>% replace(is.na(.), 0) %>% group_by(Canton) %>% mutate(sumICU = sum(zertifizierte.Betten)) %>% ungroup() %>% distinct(Canton, sumICU)
 names(bed_data)[1] = 'geoid'
 bed1 = left_join(max1, bed_data, by='geoid') %>% mutate(percentage = quants/sumICU*100)
 ARmap1 <- plot_geounit_attack_rate_map(bed1,
-                             geodata,
-                             shp,
-                             scenariolabel = config$report$formatting$scenario_labels[1],
-                             viridis_palette = "viridis",
-                             popnodes = config$spatial_setup$popnodes)
+                                       geodata,
+                                       shp,
+                                       scenariolabel = config$report$formatting$scenario_labels[1],
+                                       viridis_palette = "viridis",
+                                       popnodes = config$spatial_setup$popnodes)
 bed2 = left_join(max2, bed_data, by='geoid') %>% mutate(percentage = quants/sumICU*100)
 ARmap2 <- plot_geounit_attack_rate_map(bed2,
-                             geodata,
-                             shp,
-                             scenariolabel = config$report$formatting$scenario_labels[2],
-                             viridis_palette = "viridis",
-                             popnodes = config$spatial_setup$popnodes)
+                                       geodata,
+                                       shp,
+                                       scenariolabel = config$report$formatting$scenario_labels[2],
+                                       viridis_palette = "viridis",
+                                       popnodes = config$spatial_setup$popnodes)
 bed3 = left_join(max3, bed_data, by='geoid') %>% mutate(percentage = quants/sumICU*100)
 ARmap3 <- plot_geounit_attack_rate_map(bed3,
-                             geodata,
-                             shp,
-                             scenariolabel = config$report$formatting$scenario_labels[3],
-                             viridis_palette = "viridis",
-                             popnodes = config$spatial_setup$popnodes)
+                                       geodata,
+                                       shp,
+                                       scenariolabel = config$report$formatting$scenario_labels[3],
+                                       viridis_palette = "viridis",
+                                       popnodes = config$spatial_setup$popnodes)
 
 #plot(picu)M
 cap1icu <- paste0("**Fig. ", fig_counter, "**: Exceedence of the baseline ICU capacity for Switzerland, with regard to the median of the peak number of simulated *current ICU* beds used in the three scenarios. The ICU capacity is extracted from SGI-SSMI, giving a total of 981 beds in Switzerland. It does not account for increase capacity in response to the epidemic.")
@@ -320,16 +320,16 @@ fig_counter <- fig_counter + 1
 ### Software
 
 **Using the Pipeline from Johns Hopkins [ID Dynamics Working Group](http://www.iddynamics.jhsph.edu/):** 
- 
-   - EPFL: Joseph Lemaitre
-    
-   - JHU: Kyra H. Grantz, Joshua Kaminsky, Steve Lauer,  Elizabeth C. Lee, Justin Lessler, Hannah R. Meredith, Shaun A. Truelove. 
- 
-   - University of Utah: Lindsay T. Keegan
- 
-   - Developper without affiliations: Sam Shah, Josh Wills
- 
-   - [Open-Source Software](https://github.com/HopkinsIDD/COVIDScenarioPipeline)
+
+- EPFL: Joseph Lemaitre
+
+- JHU: Kyra H. Grantz, Joshua Kaminsky, Steve Lauer,  Elizabeth C. Lee, Justin Lessler, Hannah R. Meredith, Shaun A. Truelove. 
+
+- University of Utah: Lindsay T. Keegan
+
+- Developper without affiliations: Sam Shah, Josh Wills
+
+- [Open-Source Software](https://github.com/HopkinsIDD/COVIDScenarioPipeline)
 
 <!--**Contact:** [joseph.lemaitre@epfl.ch](<mailto:joseph.lemaitre@epfl.ch?subject=Hyperlinks>), [jacques.fellay@epfl.ch](<mailto:jacques.fellay@epfl.chh?subject=Hyperlinks>)-->
 
@@ -337,7 +337,7 @@ fig_counter <- fig_counter + 1
 
 ```{r r0}
 r0 <- read_csv("reports/R0_reduction.csv") %>%
-  filter(ll_comp == "d-deltah", ShortName == "CH")
+  filter(ShortName == "CH")
 ```
 
 
@@ -350,7 +350,7 @@ We built a spatial, stochastic, Susceptible-Exposed-Infected-Recovered (SEIR) mo
 
 **Initial conditions.** We fit our initial conditions for each canton using our inference model. Our likelyhood uses cases, death and hospitalization, and output the number of infected at the start of the model. Baseline transmissibility in the model was estimated with the available epidemiological data (see Section "Inference"). 
 
-**Reproductive Number.** The reproductive number $R_0$, or the average number of secondary cases caused by a single infected individual in a susceptible population, varies by scenario. Note that the reproductive number is highly-context specific. There is still uncertainty in the range of possible $R_0$ values for SARS-CoV-2, and varying effectiveness of non-pharmaceutical interventions, including social distancing, improved hand hygiene, and case detection and isolation, may further reduce $R_0$. We here produce time-varying estimates of $R_0$ based on our analysis of COVID-19-related deaths, hospitalizations and cases across cantons in Switzerland (for details see the "Inference" tab). These estimates capture the decrease in time of $R_0$ linked to the implementation of NPIs starting March 14th in the country. Our preliminary estimates are of a mean baseline $R_0$ of `r format(r0$mean[r0$var == "r0_left"], digits=2)` (`r format(r0$q025[r0$var == "r0_left"], digits=2)`-`r format(r0$q975[r0$var == "r0_left"], digits=2)` 95\% QR) prior to interventions, and a mean of `r format(r0$mean[r0$var == "r0_right"], digits=2)` (`r format(r0$q025[r0$var == "r0_right"], digits=2)`-`r format(r0$q975[r0$var == "r0_right"], digits=2)` 95\% QR) in the period of March 3 - April 5th, resulting in a mean change of `r format(100-100*r0$mean[r0$var == "r0change"], digits=2)`\% (`r format(100-100*r0$q975[r0$var == "r0change"], digits=2)`\%-`r format(100-100*r0$q025[r0$var == "r0change"], digits=2)`\% 95\% QR). For specific scenarios we assume that $R_0$ returns linearly to either the baseline value (Current Measures Stopped) or a fraction of it (both Trace and Isolate scenarios) in 1 week.
+**Reproductive Number.** The reproductive number $R_0$, or the average number of secondary cases caused by a single infected individual in a susceptible population, varies by scenario. Note that the reproductive number is highly-context specific. There is still uncertainty in the range of possible $R_0$ values for SARS-CoV-2, and varying effectiveness of non-pharmaceutical interventions, including social distancing, improved hand hygiene, and case detection and isolation, may further reduce $R_0$. We here produce time-varying estimates of $R_0$ based on our analysis of COVID-19-related deaths, hospitalizations and cases across cantons in Switzerland (for details see the "Inference" tab). These estimates capture the decrease in time of $R_0$ linked to the implementation of NPIs starting March 14th in the country. Our preliminary estimates are of a baseline $R_0$ of 2.76 (1.98-3.14 95\% CI) prior to interventions. The mean estimated value of $R_0$ after NPI implementation is of `r format(r0$mean[r0$var == "r0_right"], digits=2)` (`r format(r0$q025[r0$var == "r0_right"], digits=2)`-`r format(r0$q975[r0$var == "r0_right"], digits=2)` 95\% QR, `r format(r0$q25[r0$var == "r0_right"], digits=2)`-`r format(r0$q75[r0$var == "r0_right"], digits=2)` IQR) in the period of March 28 - April 2nd, resulting in a mean change of `r format(100-100*r0$mean[r0$var == "r0change"], digits=2)`\% (`r format(100-100*r0$q975[r0$var == "r0change"], digits=2)`\%-`r format(100-100*r0$q025[r0$var == "r0change"], digits=2)`\% 95\% QR, `r format(100-100*r0$q75[r0$var == "r0change"], digits=2)`\%-`r format(100-100*r0$q25[r0$var == "r0change"], digits=2)`\% IQR). For specific scenarios we assume that $R_0$ returns linearly to either the baseline value (Current Measures Stopped) or a fraction of it (both Trace and Isolate scenarios) in 1 week.
 
 **COVID-19 Natural History.** From analysis of 181 confirmed SARS-CoV-2 cases among travelers and other publicly reported cases, Lauer et al. estimate the incubation period, or the time from exposure to symptom onset, to follow an exponential distribution with mean 5.2 days (IQR 1.5, 7.21 days). The average duration of infectiousness following symptom onset is between 1.3 days and 3, following an Erlang distribution with 3 compartments. We thus sample across a range of possible mean serial intervals (time from symptom onset of an index case to symptom onset of a secondary case infected by the index) from 6.5 to 8.2 days.
 
@@ -369,8 +369,7 @@ national_data <- read_csv("reports/national_data.csv") %>%
          icu = icu_curr) %>% 
   # mutate(cases = cumsum(cases)) %>%
   select(date, cases, hosp, deaths, icu) %>% 
-  gather(var, value, -date) %>% 
-  filter(date < "2020-04-08")
+  gather(var, value, -date)
 
 quantiles_sims <- computeQuantiles(filter(state_hosp_totals, scenario_num == 1))
 
@@ -412,7 +411,7 @@ We support our planning scenarios model with a modelling analysis of the epidemi
 ### Inference methods
 **Infection dynamics and hospitalization model** We implement for inference a stochastic dynamical model of the epidemic and hospitalization processes based on the SEIR template used for our scenario generation. The infection dynamics part of the model is the same as the one used for scenario building. Hospitalization dynamics are here modelled explicitely, as opposed to the statistical approach used in scenario buidling. This is done so as to allow the formulation of data likelihood functions which incorporate them. The model assumes that infected people have a certain probability of developing severe symptoms, which then either are hospitalized or not. Infected can dye either outside of the hospital system or within it, either in an ICU or not. The number of compartments in each stage of the disease is determined by fitting an Erlang distribution to the observed times of each transition between classes. These were determing based on hospital data from VD up to April 8th.
 
-**Inference** We fit the model to cantonal-level data available from [OpenZH](https://github.com/openZH/covid_19). These include the current number of hospitalized COVID patients, and the cumulative numbers of deaths, cases and hospital discharges. The latter was not available in all cantons. Time-varying transmission $R_0(t)$ was estimated following a similar approach than that in [@Cazelles2018], with assumptions on the natural history of SARS-CoV-2 detailed in the Methods section.
+**Inference** We fit the model to curated data from [OpenZH](https://github.com/openZH/covid_19), available [here](https://github.com/daenuprobst/covid19-cases-switzerland) These include the current number of hospitalized COVID patients, and the cumulative numbers of deaths, cases and hospital discharges. The latter was not available in all cantons. Time-varying transmission $R_0(t)$ was estimated following a similar approach than that in [@Cazelles2018], with assumptions on the natural history of SARS-CoV-2 detailed in the Methods section.
 
 We choose to only use deaths and hospitalizations for model estimation due to the challenges linked to COVID-19 case identification and heterogenous testing strategies adopted across cantons. The observation model is formulated as follows:
 
@@ -427,16 +426,26 @@ where, $\Delta I(t)$, $\Delta D(t)$, $\Delta H(t)$, $\Delta D_H(t)$, $\Delta R_H
 ### Estimates of time-varying $R_0$
 
 ```{r r0plot, echo=FALSE, fig.height=4, fig.width=5, fig.cap=capr}
-filterstats <- read_csv("reports/r0.csv")
-yearsToDate <- function(year_frac, origin = as.Date("2020-01-01"), yr_offset = 2020.0) {
-  as.Date((year_frac - yr_offset) * 365.25, origin = origin)
+# function to convert dates to fractions of years for model
+yearsToDate <- function(year_frac, origin = as.Date("2020-01-01"), yr_offset = 2020.0, format = T) {
+  out <- as.Date((year_frac - yr_offset) * 365.25, origin = origin)
+  if(format)
+    
+    out <- format(out, "%B %d")
+  return(out)
 }
+
+filterstats <- read_csv("reports/filter_states.csv") %>% 
+  filter(var == "Rt", ShortName == "CH")
+
+
 p <- filterstats %>% 
-  ggplot(aes(x = yearsToDate(time))) +
+  ggplot(aes(x = time)) +
   geom_ribbon(aes(ymin = q025, ymax = q975), alpha = .2) +
   geom_ribbon(aes(ymin = q25, ymax = q75), alpha = .2) +
   theme_bw() +
   labs(x = "", y = "Basice reproduction number") +
+  scale_x_continuous(labels = yearsToDate) +
   geom_hline(aes(yintercept = 1), lty = 2, size = .3)
 p
 capr <- paste0("**Fig. ", fig_counter, "**: Time-varying estimates of $R_0$ in Switzerland. Light gray and dark gray envelops give the 50% and 95% quantile ranges of the smoothing distribution of $R_0$ given the data.")
@@ -445,6 +454,10 @@ fig_counter <- fig_counter + 1
 
 ### Fit to data
 ```{r datafit, fig.cap=capf, fig.height=5.5, fig.width=9}
+dateToYears <- function(date, origin = as.Date("2020-01-01"), yr_offset = 2020) {
+  julian(date, origin = origin)/365.25 + yr_offset
+}
+
 data <- read_csv("reports/national_data.csv")
 filter_stats <- read_csv("reports/filter_states.csv")
 
@@ -459,9 +472,14 @@ var_dict <- c("D" = "Cumulative deaths",
               "a_I" = "Case incidence",
               "tot_I" = "Cumulative cases")
 
-pdata <- ggplot(filter_stats %>%
-                  filter(var %in% plot_states, parset == 2) %>% 
-                  mutate(date = yearsToDate(time)), aes(x = date)) +
+
+pdata <- filter_stats %>%
+  filter(var %in% plot_states) %>% 
+  mutate(date = yearsToDate(time)) %>% 
+  filter(time  <= dateToYears(as.Date("2020-04-13"))) %>%
+  group_by(var) %>% 
+  mutate(q975 = case_when(q975 > 3 * max(q75) ~ 3 * max(q75), T ~ q975)) %>% 
+  ggplot(aes(x = time)) +
   geom_ribbon(aes(ymin = q025, ymax = q975), alpha = .2) +
   geom_ribbon(aes(ymin = q25, ymax = q75), alpha = .2) +
   geom_point(data = data %>%
@@ -475,11 +493,13 @@ pdata <- ggplot(filter_stats %>%
                  a_O = discharged,
                  a_deltaH = delta_hosp,
                  a_deltaID = delta_ID
-               ) %>% 
-               gather(var, value, -date) %>% 
-               filter(var %in% plot_states),
+               ) %>%
+               gather(var, value, -date) %>%
+               filter(var %in% plot_states) %>%
+               mutate(time = dateToYears(date)),
              aes(y = value)) +
   facet_wrap(~var, scales = "free_y", labeller = labeller(var = var_dict))  +
+  scale_x_continuous(labels  = yearsToDate) +
   theme_bw() +
   labs(x = "", y = "")
 
