@@ -122,11 +122,11 @@ plot_states <- c("tot_I", "Rt", state_names[str_detect(state_names, "a_|_curr")]
 
 # Load data
 data <- read_csv(glue("{opt$b}interm/data_{suffix}.csv"))
-data <- cases_data %>% dplyr::select(
-                              date, cases, deaths, hosp_incid, cum_deaths, 
-                              hosp_curr, icu_curr, discharged, delta_hosp, delta_ID, 
-                              icu_incid, deaths_icu_incid, deaths_noicu_incid, r_incid)
-data <- data %>% mutate(deaths_nohosp = deaths - deaths_icu_incid - deaths_noicu_incid)
+# data <- cases_data %>% dplyr::select(
+#                               date, cases, deaths, hosp_incid, cum_deaths, 
+#                               hosp_curr, icu_curr, discharged, delta_hosp, delta_ID, 
+#                               icu_incid, deaths_icu_incid, deaths_noicu_incid, r_incid)
+# data <- data %>% mutate(deaths_nohosp = deaths - deaths_icu_incid - deaths_noicu_incid)
 
 if (canton == "CH") {
   write_csv(filter_stats, "scenario-pipeline/reports/filter_states.csv")
