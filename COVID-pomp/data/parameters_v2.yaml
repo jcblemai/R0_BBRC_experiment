@@ -1,0 +1,35 @@
+# generation time: 5.2 days, exposed (non-infectious time): 2.9 days
+e2i: 0.3448
+# time syptoms out of I: 4.6 days
+i2o: 0.217
+# time from symptome onset to hospitalization: 5.3 days -> 2 extra days after end of I
+i2h: 0.625
+# time symptoms to death not hospitalized: 14 days -> 1/(14-4.6)
+id2o: 0.106
+# rate hospitalization to death without ICU: fitted to VD data (k=2) 
+hd2d: 0.255
+# rate hospitalization to ICU: fitted to VD data (k=1)
+h2u: 0.503
+# rate hospitalization to recovery: fitted to VD data (k=2)
+hs2ra: 0.328
+hs2rb: 0.213
+# rate ICU to death: fitted to VD data (k=2)
+ud2d: 0.302
+# rate ICU to recovery: fitted to VD data (k=2)
+us2ra: 0.340
+us2rb: 0.0732
+# probability of severe symptoms
+psevere: 0.075
+# probability of death|!hospitalization
+pi2d: 0.094
+# probability of hospitalization (VD data)
+pi2h: 0.3636
+# probability of discharge,!ICU|hospitalization
+pi2hs: 0.73
+# probability of ICU|hospitalization, (!discharged & !ICU) (VD data)
+ph2u: 0.72
+# probability of death|ICU (VD data)
+pu2d: 0.18
+# probability of 
+pusa: 0.33
+phsa: 0.34

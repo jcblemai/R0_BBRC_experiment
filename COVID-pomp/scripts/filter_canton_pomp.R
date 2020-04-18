@@ -16,7 +16,7 @@ library(glue)
 select <- dplyr::select
 option_list = list(
   optparse::make_option(c("-c", "--config"), action="store", default='pomp_config.yaml', type='character', help="path to the config file"),
-  optparse::make_option(c("-p", "--place"), action="store", default='CH', type='character', help="name of place to be run, a Canton abbrv. in CH"),
+  optparse::make_option(c("-p", "--place"), action="store", default='VD', type='character', help="name of place to be run, a Canton abbrv. in CH"),
   optparse::make_option(c("-a", "--asindex"), action="store", default=0, type='numeric', help="whether to use the index of a slurm array"),
   optparse::make_option(c("-b", "--basepath"), action="store", default="COVID-pomp/", type='character', help="base path"),
   optparse::make_option(c("-j", "--jobs"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
@@ -71,7 +71,7 @@ best_params <- liks %>%
   arrange(desc(loglik)) %>% 
   # filter(loglik > max(loglik) - 4) %>% 
   select(-contains("log")) %>%
-  slice(4)
+  slice(1)
 
 t3 <- system.time({
   filter_dists <- foreach(pari = iter(best_params, "row"),
@@ -84,7 +84,7 @@ t3 <- system.time({
                                     .packages = c("pomp", "tidyverse", "foreach", "magrittr")
                             ) %dopar% {
                               
-                              pf <- pfilter(covid, params = as.vector(pari), Np = 3e3, filter.traj = T)
+                              pf <- pfilter(covid, params = as.vector(pari), Np = 1e4, filter.traj = T)
                               traj <- filter.traj(pf) %>% 
                                 as.data.frame() 
                               
@@ -122,6 +122,11 @@ plot_states <- c("tot_I", "Rt", state_names[str_detect(state_names, "a_|_curr")]
 
 # Load data
 data <- read_csv(glue("{opt$b}interm/data_{suffix}.csv"))
+data <- cases_data %>% dplyr::select(
+                              date, cases, deaths, hosp_incid, cum_deaths, 
+                              hosp_curr, icu_curr, discharged, delta_hosp, delta_ID, 
+                              icu_incid, deaths_icu_incid, deaths_noicu_incid, r_incid)
+data <- data %>% mutate(deaths_nohosp = deaths - deaths_icu_incid - deaths_noicu_incid)
 
 if (canton == "CH") {
   write_csv(filter_stats, "scenario-pipeline/reports/filter_states.csv")
@@ -130,7 +135,7 @@ if (canton == "CH") {
 
 p <- ggplot(filter_stats %>% 
               filter(var %in% plot_states,
-                     time <= dateToYears(as.Date("2020-04-12"))), 
+                     time <= dateToYears(max(data$date[!is.na(data$cases)]))), 
             aes(x = date)) +
   geom_ribbon(aes(ymin = q025, ymax = q975, fill = parset), alpha = .2) +
   geom_ribbon(aes(ymin = q25, ymax = q75, fill = parset), alpha = .2) +
@@ -142,14 +147,20 @@ p <- ggplot(filter_stats %>%
                  H_curr = hosp_curr,
                  D = cum_deaths,
                  a_D = deaths,
-                 a_O = discharged,
+                 a_O = r_incid,
                  a_deltaH = delta_hosp,
-                 a_deltaID = delta_ID
+                 a_deltaID = delta_ID,
+                 a_U = icu_incid,
+                 a_DH = deaths_noicu_incid,
+                 a_DU = deaths_icu_incid,
+                 a_DI = deaths_nohosp
                ) %>% 
                gather(var, value, -date) %>% 
                mutate(time = dateToYears(date)),
              aes(y = value)) +
   facet_wrap(~var, scales = "free")  +
   theme_bw()
+
+p
 print('ok)')
 ggsave(p, filename = glue("{opt$b}results/figs/plot_{suffix}.png"), width = 9, height = 6)

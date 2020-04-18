@@ -21,7 +21,7 @@ option_list = list(
   optparse::make_option(c("-j", "--jobs"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-o", "--cores"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-r", "--run_level"), action="store", default=1, type='numeric', help="run level for MIF"),
-  optparse::make_option(c("-p", "--place"), action="store", default='CH', type='character', help="name of place to be run, a Canton abbrv. in CH"),
+  optparse::make_option(c("-p", "--place"), action="store", default='VD', type='character', help="name of place to be run, a Canton abbrv. in CH"),
   optparse::make_option(c("-l", "--likelihood"), action="store", default='c-d-deltah', type='character', help="likelihood to be used for filtering"),
   optparse::make_option(c("-w", "--downweight"), action="store", default=0, type='numeric', help="downweight ikelihood to be used for filtering")
 )
@@ -59,7 +59,7 @@ suffix <- buildSuffix(name = config$name,
 
 # Level of detail on which to run the computations
 run_level <- opt$run_level
-sir_Np <- c(1e3, 3e3, 3e3)
+sir_Np <- c(1e3, 3e3, 5e3)
 sir_Nmif <- c(2, 20, 150)
 sir_Ninit_param <- c(2, opt$jobs, opt$jobs)
 sir_NpLL <- c(1e3, 1e4, 1e4)
@@ -70,7 +70,7 @@ sir_Nreps_global <- c(2, 5, 20)
 data_file <- glue("data/ch/cases/covid_19/fallzahlen_kanton_total_csv_v2/COVID19_Fallzahlen_Kanton_{canton}_total.csv")
 
 cases_data <- read_csv(data_file, col_types = cols()) %>% 
-  filter(date < "2020-04-08") %>%
+  # filter(date < "2020-04-14") %>%
   mutate(cases = c(ncumul_conf[1], diff(ncumul_conf)),
          deaths = c(ncumul_deceased[1], diff(ncumul_deceased)),
          cum_deaths = ncumul_deceased,
@@ -107,6 +107,12 @@ if (canton == "CH") {
            delta_ID = delta_hosp + discharged,
            hosp_incid = NA,
            delta_ID = NA)
+} else if (canton == "VD") {
+  hosp_data <- read_csv("data/VD_hosp_data.csv") %>% 
+    select(-hosp_curr)
+  
+  cases_data <- select(cases_data, one_of(setdiff(colnames(cases_data), colnames(hosp_data)[-1]))) %>% 
+    left_join(hosp_data)
 }
 
 data <- select(cases_data, 
@@ -129,7 +135,7 @@ data <- data %>% complete(date = seq.Date(start_date,end_date, by="day"))
 write_csv(data, glue("{opt$b}interm/data_{suffix}.csv"))
 
 # Build pomp object -------------------------------------------------------
-source(glue("{opt$b}scripts/pomp_skeleton_v2.R"))
+source(glue("{opt$b}scripts/pomp_skeleton_v3.R"))
 
 # Start and end dates of epidemic
 t_start <- dateToYears(start_date)
@@ -156,7 +162,7 @@ params["I_0"] <- 10/params["pop"]
 
 # adjust the rate parameters depending on the integration delta time in years (some parameter inputs given in days)
 params[param_rates_in_days_names] <- params[param_rates_in_days_names] * 365.25
-params["R0_0"] <- 2
+params["R0_0"] <- 3
 
 # rate of simulation in fractions of years
 dt_yrs <- 1/(3*365.25)
@@ -220,8 +226,9 @@ save(covid, file = glue("{opt$b}interm/pomp_{suffix}.rda"))
 cat("************ \n SAVED:", canton, "pomp object \n************")
 
 
-cat("************ \nFITTING:", canton, "with likelihood:", opt$likelihood, "\n************")
 
+# Setup MIF parameters -----------------------------------------------------
+cat("************ \nFITTING:", canton, "with likelihood:", opt$likelihood, "\n************")
 
 # files for results
 ll_filename <- glue("{opt$b}results/loglik_exploration_{suffix}.csv")
@@ -231,9 +238,6 @@ mif_filename <- glue("{opt$b}results/mif_sir_sde_{suffix}.rda")
 # parallel computations
 cl <- makeCluster(opt$cores)
 registerDoSNOW(cl)
-
-# Setup MIF parameters -----------------------------------------------------
-
 # values of the random walks standard deviations
 rw.sd_rp <- 0.02  # for the regular (process and measurement model) parameters
 rw.sd_rp_prior <- 0.005  # for the more uncertain random walk on std_X
@@ -247,10 +251,10 @@ min_param_val <- 1e-5
 parameter_bounds <- tribble(
   ~param, ~lower, ~upper,
   # Process noise
-  "std_X", 2, 3.5, #in log-scale
+  "std_X", 1, 3.5, #in log-scale
   # Initial conditions
-  "I_0", 10/params["pop"], 100/params["pop"],
-  "R0_0", 2.6, 2.8
+  "I_0", 2e-5, 2e-4,
+  "R0_0", 2.3, 3
 )
 
 if(ll_cases) {
