@@ -71,7 +71,7 @@ best_params <- liks %>%
   arrange(desc(loglik)) %>% 
   # filter(loglik > max(loglik) - 4) %>% 
   select(-contains("log")) %>%
-  slice(1)
+  slice(1:3)
 
 t3 <- system.time({
   filter_dists <- foreach(pari = iter(best_params, "row"),
