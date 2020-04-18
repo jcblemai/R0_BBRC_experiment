@@ -22,7 +22,7 @@ option_list = list(
   optparse::make_option(c("-j", "--jobs"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-o", "--cores"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-n", "--nfilter"), action="store", default=10, type='numeric', help="Number of filtering iterations"),
-  optparse::make_option(c("-l", "--likelihood"), action="store", default='d-deltah', type='character', help="likelihood to be used for filtering"),
+  optparse::make_option(c("-l", "--likelihood"), action="store", default='d-h', type='character', help="likelihood to be used for filtering"),
   optparse::make_option(c("-w", "--downweight"), action="store", default=0, type='numeric', help="downweight ikelihood to be used for filtering")
 )
 opt <- optparse::parse_args(optparse::OptionParser(option_list=option_list))
@@ -147,13 +147,13 @@ p <- ggplot(filter_stats %>%
                  H_curr = hosp_curr,
                  D = cum_deaths,
                  a_D = deaths,
-                 a_O = r_incid,
+                 # a_O = r_incid,
                  a_deltaH = delta_hosp,
                  a_deltaID = delta_ID,
-                 a_U = icu_incid,
-                 a_DH = deaths_noicu_incid,
-                 a_DU = deaths_icu_incid,
-                 a_DI = deaths_nohosp
+                 # a_U = icu_incid,
+                 # a_DH = deaths_noicu_incid,
+                 # a_DU = deaths_icu_incid,
+                 # a_DI = deaths_nohosp
                ) %>% 
                gather(var, value, -date) %>% 
                mutate(time = dateToYears(date)),
