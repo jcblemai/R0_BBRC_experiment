@@ -21,7 +21,7 @@ option_list = list(
   optparse::make_option(c("-j", "--jobs"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-o", "--cores"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-r", "--run_level"), action="store", default=1, type='numeric', help="run level for MIF"),
-  optparse::make_option(c("-p", "--place"), action="store", default='VD', type='character', help="name of place to be run, a Canton abbrv. in CH"),
+  optparse::make_option(c("-p", "--place"), action="store", default='TI', type='character', help="name of place to be run, a Canton abbrv. in CH"),
   optparse::make_option(c("-l", "--likelihood"), action="store", default='c-d-deltah', type='character', help="likelihood to be used for filtering"),
   optparse::make_option(c("-w", "--downweight"), action="store", default=0, type='numeric', help="downweight ikelihood to be used for filtering")
 )

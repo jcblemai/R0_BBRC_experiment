@@ -5,8 +5,8 @@ lls=('d-deltah')
 #lls=('d')
 #places=('CH')
 places=('FR' 'GE' 'GR' 'JU' 'NE' 'TI' 'VD' 'VS' 'ZH' 'BS' 'BL')
-# missing: AG AI AR GL NW OW SG SH SO SZ TG UR ZG "LU"
-#'BE' 'BL' 'BS' 
+places=('AG' 'AI' 'AR' 'GL' 'NW' 'OW' 'SG' 'SH' 'SO' 'SZ' 'TG' 'UR' 'ZG' 'LU' 'BE')
+# missing: AG AI AR GL NW OW SG SH SO SZ TG UR ZG "LU" BE
 for place in ${places[@]}; do
   for ll in ${lls[@]}; do
     Rscript COVID-pomp/scripts/build_canton_pomp.R -p ${place} -l ${ll} -r 3 -o 8 -j 8

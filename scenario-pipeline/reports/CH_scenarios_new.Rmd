@@ -81,7 +81,7 @@ release_date <- as.Date(config$interventions$settings$Stopped$period_start_date)
 time_horizons <- as.Date(config$report$formatting$display_dates)
 
 icu_threshs <- c(1e3, 2e3, 3e3)
-time_cut <- as.Date("2020-04-08")
+time_cut <- as.Date("2020-04-13")
 
 Sys.setlocale("LC_TIME", "C")
 
@@ -375,7 +375,7 @@ quantiles_sims <- computeQuantiles(filter(state_hosp_totals, scenario_num == 1))
 
 p <- make_combined_plot(quantiles_sims, national_data, time_cut, nrow =1)
 plot(p)
-capdata <- paste0("**Fig. ", fig_counter, "**: Simulation envelopes of the Current Measures scenario up to April 8th. Black dots is the data as made available by [OpenZH](https://github.com/openZH/covid_19). The shaded area show the 95 percentile and the bright area the 50 percentile.")
+capdata <- paste0("**Fig. ", fig_counter, "**: Simulation envelopes of the Current Measures scenario up to April 8th. Black dots is the data as made available by [OpenZH](https://github.com/openZH/covid_19). The shaded area show the 95 percentile and the bright area the 50 percentile. On the left, we present modelled infections against reported cases.")
 fig_counter <- fig_counter + 1
 ```
 
