@@ -98,7 +98,7 @@ joined <- left_join(gdata_CH %>% mutate(julian = lubridate::yday(date)),
 
 crosscorrs <- joined %>% 
   filter(date.x >= "2020-03-05", date.x <= "2020-04-05") %>% 
-  filter(var != "residential") %>% 
+  # filter(var != "residential") %>% 
   group_by(ShortName, var) %>% 
   group_map(~getCorr(.x$relative, .x$rollmean) %>% 
               mutate(ShortName = .y[[1]], var = .y[[2]])) %>% 
