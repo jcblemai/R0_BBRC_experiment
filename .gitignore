@@ -1,3 +1,9 @@
+scenario-pipeline/hospitalization/
+scenario-pipeline/model_output/
+scenario-pipeline/.files/
+scenario-pipeline/.ipynb_checkpoints/
+COVID-pomp/interm/*
+COVID-pomp/results/*
 # History files
 .Rhistory
 .Rapp.history
