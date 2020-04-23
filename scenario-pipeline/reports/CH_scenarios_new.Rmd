@@ -40,6 +40,7 @@ library(covidcommon)
 library(report.generation)
 library(kableExtra)
 library(gridExtra)
+library(ggplot2)
 source("compute_hosp_stats.R")
 
 ```
@@ -81,7 +82,7 @@ release_date <- as.Date(config$interventions$settings$Stopped$period_start_date)
 time_horizons <- as.Date(config$report$formatting$display_dates)
 
 icu_threshs <- c(1e3, 2e3, 3e3)
-time_cut <- as.Date("2020-04-13")
+time_cut <- as.Date("2020-04-23")
 
 Sys.setlocale("LC_TIME", "C")
 
@@ -134,22 +135,22 @@ state_hosp_totals$NincidDeath <- state_hosp_totals$NincidDeath * 2
 #state_hosp_totals <- inner_join(state_hosp_totals , resampled_sims) %>%
 #  select(-sim_num) %>% rename(sim_num = new_sim_num)
 
-rc <- list(length=length(scn_dirs))
-for (i in 1:length(scn_dirs)) {
-  rc[[i]] <- load_hosp_sims_filtered(scn_dirs[i],
-                                     num_files = 1000,
-                                     name_filter = '',
-                                     #post_process = hosp_post_process,
-                                     #geoid_len = geoid_len,
-                                     #padding_char = padding_char
-  )
-  rc[[i]]$scenario_num <- i
-  rc[[i]]$scenario_label <- scenario_labels[[i]]
-}
-
-max1 <- rc[[1]] %>% select(icu_curr, geoid, time, scenario_label, sim_num) %>% group_by(geoid, sim_num) %>% mutate(max = max(icu_curr)) %>% ungroup() %>% filter(time == as.Date("2020-01-31")) %>% group_by(geoid) %>% summarize(quants = quantile(max, probs = .5))
-max2 <- rc[[2]] %>% select(icu_curr, geoid, time, scenario_label, sim_num) %>% group_by(geoid, sim_num) %>% mutate(max = max(icu_curr)) %>% ungroup() %>% filter(time == as.Date("2020-01-31")) %>% group_by(geoid) %>% summarize(quants = quantile(max, probs = .5))
-max3 <- rc[[3]] %>% select(icu_curr, geoid, time, scenario_label, sim_num) %>% group_by(geoid, sim_num) %>% mutate(max = max(icu_curr)) %>% ungroup() %>% filter(time == as.Date("2020-01-31")) %>% group_by(geoid) %>% summarize(quants = quantile(max, probs = .5))
+# rc <- list(length=length(scn_dirs))
+# for (i in 1:length(scn_dirs)) {
+#   rc[[i]] <- load_hosp_sims_filtered(scn_dirs[i],
+#                                      num_files = 1000,
+#                                      name_filter = '',
+#                                      #post_process = hosp_post_process,
+#                                      #geoid_len = geoid_len,
+#                                      #padding_char = padding_char
+#   )
+#   rc[[i]]$scenario_num <- i
+#   rc[[i]]$scenario_label <- scenario_labels[[i]]
+# }
+# 
+# max1 <- rc[[1]] %>% select(icu_curr, geoid, time, scenario_label, sim_num) %>% group_by(geoid, sim_num) %>% mutate(max = max(icu_curr)) %>% ungroup() %>% filter(time == as.Date("2020-01-31")) %>% group_by(geoid) %>% summarize(quants = quantile(max, probs = .5))
+# max2 <- rc[[2]] %>% select(icu_curr, geoid, time, scenario_label, sim_num) %>% group_by(geoid, sim_num) %>% mutate(max = max(icu_curr)) %>% ungroup() %>% filter(time == as.Date("2020-01-31")) %>% group_by(geoid) %>% summarize(quants = quantile(max, probs = .5))
+# max3 <- rc[[3]] %>% select(icu_curr, geoid, time, scenario_label, sim_num) %>% group_by(geoid, sim_num) %>% mutate(max = max(icu_curr)) %>% ungroup() %>% filter(time == as.Date("2020-01-31")) %>% group_by(geoid) %>% summarize(quants = quantile(max, probs = .5))
 ```
 
 ### Scenario outcomes
@@ -245,7 +246,7 @@ capicu <- paste0("**Fig. ", fig_counter, "**: Probability of exceedence of ICU c
 fig_counter <- fig_counter + 1
 ```
 
-
+<!--
 ```{r maps, fig.width=12, fig.height=4, fig.cap=cap1icu}
 
 plot_geounit_attack_rate_map <- function (max,
@@ -316,7 +317,7 @@ cap1icu <- paste0("**Fig. ", fig_counter, "**: Exceedence of the baseline ICU ca
 grid.arrange(ARmap1, ARmap2, ARmap3, ncol = 3)
 fig_counter <- fig_counter + 1
 ```
-
+-->
 ### Software
 
 **Using the Pipeline from Johns Hopkins [ID Dynamics Working Group](http://www.iddynamics.jhsph.edu/):** 
@@ -444,7 +445,7 @@ p <- filterstats %>%
   geom_ribbon(aes(ymin = q025, ymax = q975), alpha = .2) +
   geom_ribbon(aes(ymin = q25, ymax = q75), alpha = .2) +
   theme_bw() +
-  labs(x = "", y = "Basice reproduction number") +
+  labs(x = "", y = "Basic reproduction number") +
   scale_x_continuous(labels = yearsToDate) +
   geom_hline(aes(yintercept = 1), lty = 2, size = .3)
 p
