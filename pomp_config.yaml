@@ -7,7 +7,7 @@ timewindow_R0:
 likelihoods:
   to_compute:
     - d-deltah
-    - c-d-deltah
+  #  - c-d-deltah
    # - d
   to_plot:
      - d-deltah
@@ -20,16 +20,17 @@ parameters_to_fit:
     transform: "log"
 places:
   - CH
-#  - BE
-#  - BL
-#  - BS
-#  - FR
-#  - GE
-#  - GR
-#  - JU
-  #- LU
-#  - NE
-#  - TI
-#  - VD
-#  - VS
-#  - ZH
+  - BE
+  - BL
+  - BS
+  - FR
+  - GE
+  - GR
+  - JU
+#  - LU
+  - NE
+  - TI
+  - UR
+  - VD
+  - VS
+  - ZH
