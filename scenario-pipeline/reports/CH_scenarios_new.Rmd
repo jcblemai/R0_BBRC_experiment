@@ -477,7 +477,7 @@ var_dict <- c("D" = "Cumulative deaths",
 pdata <- filter_stats %>%
   filter(var %in% plot_states) %>% 
   mutate(date = yearsToDate(time)) %>% 
-  filter(time  <= dateToYears(as.Date("2020-04-13"))) %>%
+  filter(time  <= dateToYears(as.Date("2020-04-23"))) %>%
   group_by(var) %>% 
   mutate(q975 = case_when(q975 > 3 * max(q75) ~ 3 * max(q75), T ~ q975)) %>% 
   ggplot(aes(x = time)) +
