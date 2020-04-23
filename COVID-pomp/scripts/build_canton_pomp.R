@@ -21,8 +21,8 @@ option_list = list(
   optparse::make_option(c("-j", "--jobs"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-o", "--cores"), action="store", default=detectCores(), type='numeric', help="number of cores used"),
   optparse::make_option(c("-r", "--run_level"), action="store", default=1, type='numeric', help="run level for MIF"),
-  optparse::make_option(c("-p", "--place"), action="store", default='VD', type='character', help="name of place to be run, a Canton abbrv. in CH"),
-  optparse::make_option(c("-l", "--likelihood"), action="store", default='c-d-deltah', type='character', help="likelihood to be used for filtering"),
+  optparse::make_option(c("-p", "--place"), action="store", default='BE', type='character', help="name of place to be run, a Canton abbrv. in CH"),
+  optparse::make_option(c("-l", "--likelihood"), action="store", default='d-deltah', type='character', help="likelihood to be used for filtering"),
   optparse::make_option(c("-w", "--downweight"), action="store", default=0, type='numeric', help="downweight ikelihood to be used for filtering")
 )
 opt <- optparse::parse_args(optparse::OptionParser(option_list=option_list))
@@ -79,7 +79,7 @@ cases_data <- read_csv(data_file, col_types = cols()) %>%
          hosp_curr = current_hosp,
          discharged = c(ncumul_released[1], diff(ncumul_released)),
          delta_hosp = c(hosp_curr[1], diff(hosp_curr)),
-         delta_ID = delta_hosp + discharged)
+         delta_ID = NA)
 
 cases_data$cases[cases_data$cases < 0] <- NA
 
@@ -108,11 +108,11 @@ if (canton == "CH") {
            hosp_incid = NA,
            delta_ID = NA)
 } else if (canton == "VD") {
-  hosp_data <- read_csv("data/VD_hosp_data.csv") %>% 
+  hosp_data <- read_csv("data/VD_hosp_data.csv") %>%
     select(-hosp_curr)
-  
-  cases_data <- select(cases_data, one_of(setdiff(colnames(cases_data), colnames(hosp_data)[-1]))) %>% 
-    left_join(hosp_data)
+  # 
+  # cases_data <- select(cases_data, one_of(setdiff(colnames(cases_data), colnames(hosp_data)[-1]))) %>% 
+  #   left_join(hosp_data)
 }
 
 data <- select(cases_data, 
@@ -158,7 +158,7 @@ params["std_W"] <- 0#1e-4
 params["std_X"] <- 0#1e-4
 params["epsilon"] <- 1
 params["k"] <- 5
-params["I_0"] <- 10/params["pop"]
+params["I_0"] <- 100/params["pop"]
 
 # adjust the rate parameters depending on the integration delta time in years (some parameter inputs given in days)
 params[param_rates_in_days_names] <- params[param_rates_in_days_names] * 365.25
@@ -225,6 +225,13 @@ save(covid, file = glue("{opt$b}interm/pomp_{suffix}.rda"))
 
 cat("************ \n SAVED:", canton, "pomp object \n************")
 
+simulate(covid, nsim = 10, format = "data.frame") %>% 
+  gather(var, value, -time, -.id) %>% 
+  filter(time <= dateToYears(as.Date(c("2020-03-20")))) %>% 
+  ggplot(aes(x = time, y = value, color = .id, group = .id)) +
+  geom_line() +
+  scale_color_viridis_d() +
+  facet_wrap(~var, scales = "free_y")
 
 
 # Setup MIF parameters -----------------------------------------------------
@@ -251,10 +258,10 @@ min_param_val <- 1e-5
 parameter_bounds <- tribble(
   ~param, ~lower, ~upper,
   # Process noise
-  "std_X", 1, 3.5, #in log-scale
+  "std_X", 2, 3.5, #in log-scale
   # Initial conditions
   "I_0", 2e-5, 2e-4,
-  "R0_0", 2.3, 3
+  "R0_0", 2.6, 3.5
 )
 
 if(ll_cases) {

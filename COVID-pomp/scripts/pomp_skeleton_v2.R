@@ -1,4 +1,3 @@
-
 # Set variables -----------------------------------------------------------
 
 # Number of compartements for each variable to represent Erlang distributions
@@ -49,8 +48,8 @@ if (ll_cases) {
 if (!is.null(config$parameters_to_fit)) {
   allin <- unlist(lapply(names(config$parameters_to_fit), function(x) !(x %in% c(rate_names, prob_names))))
   if (sum(allin) == 0) {
-  param_proc_est_names <- c(param_proc_est_names, names(config$parameters_to_fit))
-  param_proc_fixed_names <- param_proc_fixed_names[!(param_proc_fixed_names %in% names(config$parameters_to_fit))]
+    param_proc_est_names <- c(param_proc_est_names, names(config$parameters_to_fit))
+    param_proc_fixed_names <- param_proc_fixed_names[!(param_proc_fixed_names %in% names(config$parameters_to_fit))]
   }
 }
 
@@ -146,11 +145,9 @@ proc.Csnippet <- Csnippet("
                           
                           double pi2d;   // probability of dying outside of hospital
                           pi2d = hcfr * pi2h /(1-pi2h); 
-
                           // force of infection
                           //foi = (t <= tlockdown) ? exp(X) * (I1)/N : alpha * exp(X) * (I1)/N;
                           foi =  exp(X) * (I1 + I2 + I3)/N;
-
                           if(std_W > 0.0) {
                           // white noise (extra-demographic stochasticity)
                             dw = rgammawn(std_W, dt);
@@ -222,7 +219,6 @@ proc.Csnippet <- Csnippet("
                           reulermultinom(1, U_s2,  &rate[18], dt, &dN[18]);
                           reulermultinom(1, U_d1, &rate[19], dt, &dN[19]);
                           reulermultinom(1, U_d2, &rate[20], dt, &dN[20]);
-
                           // update state variables
                           S    += -dN[0];
                           E    += dN[0] - dN[1];
@@ -258,7 +254,6 @@ proc.Csnippet <- Csnippet("
                           H_curr = H_s1 + H_s2 + H + H_d1 + H_d2 + U_s1 + U_s2 + U_d1 + U_d2;
                           // Total infected
                           tot_I += dN[1];
-
                           // random walk of beta
                           dWX = rnorm(0, sqrt(dt));
                           

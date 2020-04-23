@@ -114,7 +114,7 @@ hcfr2 <- (1- pi2hs) * (ph2u * pu2d + 1 - ph2u)
 # IFR and prob of hospitaliztion
 
 computePHosp <- function(x, pi2d, hfcr) {
-x*pi2d/(1-x)/(hcfr +x*pi2d/(1-x))
+x*pi2d/(1-x)/(hcfr + x*pi2d/(1-x))
 }
 
 toOptPI2D <- function(pi2d, ifr, psevere, x, hcfr) {
@@ -122,7 +122,8 @@ toOptPI2D <- function(pi2d, ifr, psevere, x, hcfr) {
   (ifr - psevere*(pi2h * hcfr + (1 - pi2h) * pi2d))^2
 }
 
-x <- 0.4 # proportion of deaths
+x <- 0.5
+# proportion of deaths
 psymptomatic <- 0.5
 ifr <- 0.0075
 psevere <- psymptomatic * 0.15

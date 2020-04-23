@@ -90,10 +90,14 @@ getCorr <- function(x, y) {
 joined <- left_join(gdata_CH %>% mutate(julian = lubridate::yday(date)), 
                     r_knot %>% ungroup %>%  mutate(julian = lubridate::yday(date)), 
                     by = c("ShortName", "julian")) %>% 
-  drop_na() 
+  group_by(ShortName, var) %>% 
+  mutate(relative = case_when(is.na(relative) ~ 0, T ~ relative),
+         rollmean = case_when(is.na(rollmean) ~ 0, T ~ rollmean)) %>% 
+  select(relative, rollmean, date.x) %>% 
+  drop_na()
 
 crosscorrs <- joined %>% 
-  filter(date.x >= "2020-03-08", date.x <= "2020-04-05") %>% 
+  filter(date.x >= "2020-03-05", date.x <= "2020-04-05") %>% 
   filter(var != "residential") %>% 
   group_by(ShortName, var) %>% 
   group_map(~getCorr(.x$relative, .x$rollmean) %>% 
@@ -101,7 +105,7 @@ crosscorrs <- joined %>%
   bind_rows() %>% 
   mutate(lag.type = case_when(lag == 0 ~ "simultaneous",
                               lag < 0 ~ "lagging",
-                              lag > 0 ~ "preceeding"))
+                              lag > 0 ~ "preceding"))
 
 write_csv(crosscorrs, path= "COVID-pomp/results/mobility_cross_correlations.csv")
 

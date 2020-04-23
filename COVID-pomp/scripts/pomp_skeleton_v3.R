@@ -168,10 +168,10 @@ proc.Csnippet <- Csnippet("
                           rate[8] = pi2d * id2o;    // severe infected that die
                           
                           // I_h compartment
-                          rate[9] =  i2h * pi2hs * i2o * phsa;   // hospitalization that WILL NOT go in ICU nor die
-                          rate[10] = i2h * pi2hs * i2o * (1-phsa);   // hospitalization that WILL NOT go in ICU nor die
-                          rate[11] = i2h * (1-pi2hs) * (1-ph2u) * i2o;   // hospitalization that WILL NOT go in ICU and die
-                          rate[12] = i2h * (1-pi2hs) * ph2u * i2o;   // hospitalization that WILL go in ICU or die
+                          rate[9] =  i2h * pi2hs * phsa;   // hospitalization that WILL NOT go in ICU nor die
+                          rate[10] = i2h * pi2hs  * (1-phsa);   // hospitalization that WILL NOT go in ICU nor die
+                          rate[11] = i2h * (1-pi2hs) * (1-ph2u);   // hospitalization that WILL NOT go in ICU and die
+                          rate[12] = i2h * (1-pi2hs) * ph2u;   // hospitalization that WILL go in ICU or die
                           
                           // H_sa compartment
                           rate[13] = hs2ra;   // recover

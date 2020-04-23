@@ -67,7 +67,9 @@ computeR0Reduction <- function(filter_data, tw_left, tw_right, date_start) {
     mutate(date = yearsToDate(time)) %>%
     group_by(ShortName, it, ll_comp, parset) %>% 
     summarise(r0_right = singleR0value(value, time, dateToYears(tw_right[1]), dateToYears(tw_right[2])),
-              r0_left = singleR0value(value, time, dateToYears(tw_left[1]), dateToYears(tw_left[2])),
+              r0_left = singleR0value(value, time, 
+                                      max(c(min(time), dateToYears(tw_left[1]))),
+                                      max(c(min(time) + 2/365, dateToYears(tw_left[2])))),
               r0change = r0_right/r0_left,
               t1 = computeTimeToOne(value, time, dateToYears(date_start))) %>%
     group_by(ShortName, ll_comp, parset) %>%
@@ -147,8 +149,8 @@ plot_cnt_all <- function(filterstats, data, states_to_plot, cantons = NULL, ylab
   data_names <- c(a_I = "cases",
                   tot_I = "ncumul_conf",
                   a_H = "hosp_incid",
-                  H_curr = "hosp_curr",
-                  U_curr = "ncumul_ICU",
+                  H_curr = "current_hosp",
+                  U_curr = "current_icu",
                   D = "cum_deaths",
                   a_D = "deaths",
                   a_O = "discharged",

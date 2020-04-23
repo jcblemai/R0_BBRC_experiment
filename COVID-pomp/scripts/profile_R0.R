@@ -58,7 +58,7 @@ suffix <- buildSuffix(name = config$name,
 
 # Level of detail on which to run the computations
 run_level <- opt$run_level
-sir_Np <- c(1e3, 3e3, 3e3)
+sir_Np <- c(1e3, 3e3, 6e3)
 sir_Nmif <- c(2, 20, 150)
 sir_Ninit_param <- c(2, opt$jobs, opt$jobs)
 sir_NpLL <- c(1e3, 1e4, 1e4)
@@ -98,7 +98,7 @@ parameter_bounds <- tribble(
   # Process noise
   "std_X", 1, 4, #in log-scale
   # Initial conditions
-  "I_0", 10/params["pop"], 100/params["pop"]
+  "I_0", 2e-5, 4e-5
 )
 
 if(ll_cases) {
@@ -126,7 +126,7 @@ if (!is.null(config$parameters_to_fit)) {
 parameter_bounds <- set_rownames(as.matrix(parameter_bounds[, -1]), parameter_bounds[["param"]])
 
 # Sequence of R0s over which to profile
-R0_seq <- seq(1.5, 3.5, length.out = opt$jobs)
+R0_seq <- seq(1.5, 4.5, length.out = opt$jobs)
 n_init <- 6   # number of initializations per parameter value
 
 # create random vectors of initial parameters given the bounds
@@ -227,9 +227,13 @@ stopCluster(cl)
 source(glue("{opt$b}scripts/mcap.R"))
 prof_liks <- read_csv(ll_prof_filename) %>% 
   arrange(R0_0) %>% 
-  filter(R0_0 > 1.75, loglik > -380)
+  group_by(R0_0) %>% 
+  arrange(desc(loglik)) %>% 
+  filter(loglik > -450) %>%
+  slice(1:5)%>%
+  filter(R0_0 > 2 , R0_0 < 4.5)
 
-R0_mcap <- mcap(prof_liks$loglik, prof_liks$R0_0, lambda = .75)
+R0_mcap <- mcap(prof_liks$loglik, prof_liks$R0_0, lambda = 1)
 
 p <- ggplot(R0_mcap$fit, aes(x = parameter)) +
   geom_line(aes(y = quadratic), color = "blue") +
@@ -239,13 +243,14 @@ p <- ggplot(R0_mcap$fit, aes(x = parameter)) +
   geom_vline(aes(xintercept = R0_mcap$ci[2]), lty = 2, size = .3) +
   geom_hline(aes(yintercept = R0_mcap$llmax - R0_mcap$delta), lty = 2, size = .3) +
   theme_minimal()
-
+p
 ggsave(p, filename = glue("{opt$b}results/figs/profiling_R0_{suffix}.png"), width = 5, height = 4)
 paste0(format(R0_mcap$mle, digits = 3), " (",
        paste(format(R0_mcap$ci, digits = 3), collapse = "-"),
        ")")
 
-# ggplot(prof_liks, aes(x = R0_0)) +
-#   geom_point(aes(y = loglik)) +
-#   geom_errorbar(aes(ymin = loglik - loglik_se * 1.96, ymax = loglik + loglik_se * 1.96), width = 0)
+ggplot(prof_liks, aes(x = R0_0)) +
+  geom_point(aes(y = loglik)) + 
+  # geom_errorbar(aes(ymin = loglik - loglik_se * 1.96, ymax = loglik + loglik_se * 1.96), width = 0) +
+  geom_smooth(aes(y = loglik))
 

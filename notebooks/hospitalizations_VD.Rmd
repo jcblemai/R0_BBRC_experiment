@@ -23,10 +23,10 @@ source("../scripts/hosp_utils.R")
 
 ```{r load data, echo=FALSE, message=FALSE}
 # Date to replace on the right bound
-right_date <- as.Date("2020-04-08")
+right_date <- as.Date("2020-04-14")
 
 # Hospital data
-hosp_data <- read_csv("../data/vd/hospitalization_data_full_20200408.csv") %>% 
+hosp_data <- read_csv("../data/vd/hospitalization_data_full_20200414.csv") %>% 
   mutate_at(c("date_in", "date_out", "icu_in", "icu_out"), 
             function(x) as.Date(x, format = "%m/%d/%Y")) %>%  
   filter(date_in > "2020-02-28") %>% 
@@ -78,7 +78,7 @@ convolveManual <- function(x, y) {
   res <- rep(0, length(x))
   for (i in 1:length(x)) {
     for (j in 1:i) {
-      res[i] <- res[i] + x[j] * y[i - j + 1]
+      res[i] <- res[i] + x[j] * y[min(c(i - j + 1, length(y)))]
     }
   }
   res
@@ -264,6 +264,15 @@ hosp_data %>%
   geom_histogram() +
   theme_minimal() +
   ggthemes::scale_fill_few()
+
+hosp_data %>% 
+  mutate(outcome = case_when(outcome == "deceased" ~ outcome, T ~ "other"),
+         outcome = factor(outcome, levels = c("other", "deceased"))) %>% 
+  ggplot(aes(x = age, fill = outcome)) +
+  geom_histogram() +
+  theme_minimal() +
+  ggthemes::scale_fill_few() +
+  facet_wrap(~is.na(icu_in))
 ```
 
 **Figure. Distribution of ages of hospitalized patients**
@@ -290,23 +299,26 @@ hosp_data %>%
 ```{r fit distr}
 library(fitdistrplus)
 th_dist <- fitDist(hosp_data, "time_hosp", "lnorm")
+ticuh_dist <- fitDist(filter(hosp_data, !is.na(icu_in)), "time_hosp", "lnorm")
 th2r_dist <- fitDist(filter(hosp_data, outcome == "discharged", is.na(icu_in)), "time_hosp", "lnorm")
 tnoicuh_dist <- fitDist(filter(hosp_data, is.na(icu_in)), "time_hosp", dist = "lnorm")
-ticuh_dist <- fitDist(filter(hosp_data, !is.na(icu_in)), "time_hosp", dist = "lnorm")
 th2d_dist <- fitDist(filter(hosp_data, outcome == "deceased"), "time_hosp", dist = "lnorm")
 t2icu_dist <- fitDist(filter(hosp_data, icu_state != ""), "time_to_icu", dist = "lnorm")
 ticu_dist <- fitDist(filter(hosp_data, !is.na(time_icu)), "time_icu", dist = "lnorm")
+ticu2r_dist <- fitDist(filter(hosp_data, !is.na(time_icu) , outcome != "deceased"), "time_icu", dist = "lnorm")
 ticu2d_dist <- fitDist(filter(hosp_data, outcome == "deceased", !is.na(icu_in)), "time_icu_to_death", dist = "lnorm")
 tnoicu2d_dist <- fitDist(filter(hosp_data, outcome == "deceased", is.na(icu_in)), "time_hosp", dist = "lnorm")
 
 th_dens <- generateDenstiy(th_dist)
 th2r_dens <- generateDenstiy(th2r_dist)
+ticuh_dense <- generateDenstiy(ticuh_dist)
 tnoicuh_dens <- generateDenstiy(tnoicuh_dist)
 th2d_dens <- generateDenstiy(th2d_dist)
 t2icu_dens <- generateDenstiy(t2icu_dist)
 ticu_dens <- generateDenstiy(ticu_dist)
 ticu2d_dens <- generateDenstiy(ticu2d_dist)
 tnoicu2d_dens<- generateDenstiy(tnoicu2d_dist)
+ticu2r_dens <- generateDenstiy(ticu2r_dist)
 ```
 
 
@@ -318,19 +330,21 @@ x_lims <- c(0.5, 30)
 # Time hospitalzed
 p_th <- hosp_data %>% 
   mutate(hosp_state = case_when(outcome == "hospitalized" ~ outcome,
-                                T ~ "discharged or deceased")) %>% 
+                                T ~ "discharged or deceased"),
+         icu = !is.na(icu_in)) %>% 
   ggplot() +
-  geom_histogram(aes(x = time_hosp, y = ..density.., fill = hosp_state), position = "dodge") +
+  geom_histogram(aes(x = time_hosp, fill = hosp_state), position = "dodge") +
   geom_line(data = th_dens, aes(x = x, y = y)) +
   theme_minimal() +
   scale_fill_manual(values = th_cols) +
   labs(x = "Time hospitalized [days]") +
   theme(legend.position = c(0.75, 0.7),
         legend.key.size = unit(.5, "cm")) +
-  xlim(x_lims)
+  xlim(x_lims) +
+  facet_wrap(~icu)
 
 
-# Time to ICU
+# Time to recovery
 p_th2r <- filter(hosp_data, outcome == "discharged", is.na(icu_in)) %>% 
   ggplot() +
   geom_histogram(aes(x = time_hosp, y = ..density..), fill = "gray") +
@@ -339,6 +353,16 @@ p_th2r <- filter(hosp_data, outcome == "discharged", is.na(icu_in)) %>%
   labs(x = "Time fom hospitalization to discharge no ICU [days]") +
   xlim(x_lims)
 
+
+# Time to recovery in ICU
+p_thiuc2r <- filter(hosp_data, outcome != "deceased", !is.na(icu_in)) %>% 
+  ggplot() +
+  geom_histogram(aes(x = time_icu), fill = "gray") +
+  # geom_line(data = ticu2r_dens, aes(x = x, y = y)) +
+  theme_minimal() + 
+  labs(x = "Time fom hospitalization to discharge through ICU [days]") +
+  xlim(x_lims) +
+  facet_wrap(~outcome)
 
 # Time to ICU
 p_t2icu <- hosp_data %>% 
@@ -397,32 +421,58 @@ p_tnoicu2d <- hosp_data %>%
   xlim(x_lims)
 
 
-grid.arrange(p_th, p_t2icu, p_tiuc, p_t2d, p_ticu2d, p_tnoicu2d, ncol=2)
+grid.arrange(p_th, p_t2icu, p_tiuc, p_t2d, p_th2r, p_ticu2d, p_tnoicu2d, ncol=2)
 ```
 
 ```{r dist params}
 
 dist_params <- tribble(
-  ~var, ~mean, ~meanlog, ~sdlog,
-  "Time hospitalized", mean(th_dist$data), th_dist$estimate[1] , th_dist$estimate[2],
-  # "Time survive", mean(th2r_dist$data), th2r_dist$estimate[1] , th2r_dist$estimate[2],
-  "Time to discharge no ICU", mean(th2r_dist$data), th2r_dist$estimate[1] , th2r_dist$estimate[2],
-  "Time hospitalized no ICU", mean(tnoicuh_dist$data), tnoicuh_dist$estimate[1] , tnoicuh_dist$estimate[2],
-  "Time hospitalized with ICU", mean(ticuh_dist$data), ticuh_dist$estimate[1] , ticuh_dist$estimate[2],
-  "Time from hospitalization to ICU", mean(t2icu_dist$data), t2icu_dist$estimate[1], t2icu_dist$estimate[2],
-  "Time in ICU",  mean(ticu_dist$data),  ticu_dist$estimate[1],   ticu_dist$estimate[2],
-  "Time from hospitalization to death",  mean(th2d_dist$data),th2d_dist$estimate[1], th2d_dist$estimate[2],
-  "Time from ICU to death",  mean(ticu2d_dist$data), ticu2d_dist$estimate[1], ticu2d_dist$estimate[2],
-  "Time from hospitalization to death without ICU",  mean(tnoicu2d_dist$data), tnoicu2d_dist$estimate[1], tnoicu2d_dist$estimate[2]
-)
+  ~var, ~dist,
+  "Time hospitalized", list(th_dist),
+  "Time to discharge no ICU", list(th2r_dist),
+  "Time hospitalized no ICU", list(tnoicuh_dist),
+  "Time hospitalized with ICU", list(ticuh_dist),
+  "Time from hospitalization to ICU", list(t2icu_dist),
+  "Time in ICU", list(ticu_dist),
+  "Time from hospitalization to death", list(th2d_dist),
+  "Time from ICU to death",  list(ticu2d_dist),
+  "Time from hospitalization to death without ICU", list(tnoicu2d_dist)
+) %>% 
+  mutate(
+    mean = map_dbl(dist, ~mean(.[[1]]$data)),
+    sd = map_dbl(dist, ~sd(.[[1]]$data)),
+    logmean = map_dbl(dist, ~ .[[1]]$estimate[1]),
+    logsd = map_dbl(dist, ~ .[[1]]$estimate[2])
+  ) %>% 
+  dplyr::select(-dist)
+
 write_csv(dist_params, "~/Desktop/hosp_params.csv")
 kable(dist_params,
       booktabs = T,
       digits = 2,
       caption = "Table A.1. Estimated parameters of key hospitalization time distributions",
-      col.names = c("", "mean", "mean (logscale)", "sd (logscale)")) %>% 
+      col.names = c("", "mean", "sd", "mean (logscale)", "sd (logscale)")) %>% 
   kable_styling(latex_options = c("striped", "hold_position"),
                 full_width = F)
+
+```
+```{r survival}
+library(survival)
+
+hosp_surv <- dplyr::select(hosp_data, time_hosp, outcome) %>%
+  mutate(endpoint = factor(outcome,
+                           levels = c("hospitalized", "discharged", "deceased"),
+                           labels = c("censored", "r", "d")),
+         time = time_hosp)
+
+tfit <- survfit(Surv(time, endpoint) ~ 1 , data = hosp_surv)
+sfit <- summary(tfit)
+
+nj <- matrix(rep(tfit$n.risk[, 1], 2), ncol = 2)
+hhat <- tfit$n.event[, 2:3]/nj
+var_hhat <- hhat/nj
+hhat_comb <- rowSums(tfit$n.event[, 2:3])/nj[,1]
+thetahat <- exp(-cumsum(hhat_comb))
 
 ```
 
