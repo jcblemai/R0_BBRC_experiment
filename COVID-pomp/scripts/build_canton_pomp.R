@@ -12,6 +12,7 @@ library(itertools)
 library(lubridate)
 library(parallel)
 library(glue)
+library(ggplot2)
 select <- dplyr::select
 
 option_list = list(
