@@ -61,7 +61,7 @@ for (cnt in places$ShortName) {
   } else if (grepl("Stopped", setupname)) {
     release_rval <- truncnorm::rtruncnorm(n = 1, a = 0, b = 3.5, mean = baseline_R0, sd = 0.07)
   }  else if (grepl("R0-0dot9", setupname)) {
-      release_rval <- truncnorm::rtruncnorm(n = 1, a = 0, b = 3.5, mean = 0.9, sd = 0.07)
+      release_rval <- truncnorm::rtruncnorm(n = 1, a = 0.8, b = 1, mean = 0.9, sd = 0.07)
   }  else if (grepl("R0-1dot2", setupname)) {
     release_rval <- truncnorm::rtruncnorm(n = 1, a = 0, b = 3.5, mean = 1.2, sd = 0.07)
   } else if (grepl("TestIsolate", setupname)) {
