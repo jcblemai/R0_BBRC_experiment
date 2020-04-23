@@ -42,7 +42,7 @@ ascent_dates <- which(dates > start_ascent & dates <= end_ascent)
 release_dates <- which(dates > end_ascent)
 
 # Random draw of baseline R0
-baseline_R0s <- runif(dim(places)[1], 2, 3)
+baseline_R0s <- runif(dim(places)[1], 2.6, 3.6)
 names(baseline_R0s) <-  places$ShortName
 NPI <- as.data.frame(matrix(0, dim(places)[1],length(dates)))
 colnames(NPI) <- as.Date(dates)
