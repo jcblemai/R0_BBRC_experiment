@@ -79,6 +79,10 @@ cases_data <- read_csv(data_file, col_types = cols()) %>%
          hosp_curr = current_hosp,
          discharged = c(ncumul_released[1], diff(ncumul_released)),
          delta_hosp = c(hosp_curr[1], diff(hosp_curr)),
+<<<<<<< HEAD
+=======
+         #delta_ID = delta_hosp + discharged
+>>>>>>> 2bddd3c172607d25ee645060a4769b38d925536d
          delta_ID = NA)
 
 cases_data$cases[cases_data$cases < 0] <- NA
