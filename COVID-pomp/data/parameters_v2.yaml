@@ -3,7 +3,7 @@ e2i: 0.3448
 # time syptoms out of I: 4.6 days
 i2o: 0.217
 # time from symptome onset to hospitalization: 5.3 days -> 2 extra days after end of I
-i2h: 0.625
+i2h: 0.213
 # time symptoms to death not hospitalized: 14 days -> 1/(14-4.6)
 id2o: 0.106
 # rate hospitalization to death without ICU: fitted to VD data (k=2) 
