@@ -140,7 +140,7 @@ report:
   filtering:
     do_filtering: TRUE
     var_to_filter: ["NincidDeath", "NhospCurr"]
-    data_path: ../data/ch/national_data.csv 
+    data_path: reports/national_data.csv 
     dist: ["pois", "pois"]
     replace_zero: [TRUE, TRUE] 
     under_reporting: [1, 1]
