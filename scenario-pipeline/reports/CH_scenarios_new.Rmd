@@ -106,14 +106,14 @@ We consider three planning scenarios:
 
 are held up until May 1st. We fitted the impact of these moderately restrictive non-pharmaceutical interventions (NPIs) on cases, hospitalizations and deaths per canton (see Inference tab above). For May 1 on, we assume a return to baseline, early epidemic level transmissibility for the foreseeable future.
 
-- **Test and Isolate (35-30)**, which assumes that current measures are replaced from May 1 on by a test and isolation protocol, where the infectious period is shortened by 35% for 30% of cases infected. This protocol is accompanied by measures that reduce the $R_0$ to 70% of the baseline, early epidemic level of transmissibility.
+- **R0 around 1.2**, which assumes that current measures are replaced from May 1 on by a combination of measures that keeps the $R_0$ around 1.2
 
-- **Test and Isolate (50-60)**, which assumes that current measures are replaced from May 1 on by a test and isolation protocol, where the infectious period is shortened by 50% for 60% of cases infected. This protocol is accompanied by measures that reduce the $R_0$ to 70% of the baseline, early epidemic level of transmissibility.
+- **R0 around 0.9**, which assumes that current measures are replaced from May 1 on by a combination of measures that keeps the $R_0$ around 0.9.
 
 
 
 ```{r rmd_formatting}
-scen_desc_str <- "three scenarios with current measures until May 1st followed by 1) a return to baseline transmissiblity, 2) targeted testing and isolation (50-60)  and 3) targeted testing and isolation (35-30)"
+scen_desc_str <- "three scenarios with current measures until May 1st followed by 1) a return to baseline transmissiblity, 2) measures that keeps R0 around 1.2 and 3) measures that keeps R0 around 0.9."
 fig_counter <- 1
 tab_counter <- 1
 ```
@@ -130,7 +130,7 @@ state_hosp_totals <- load_hosp_geocombined_totals(scn_dirs,
 state_hosp_totals$NincidDeath <- state_hosp_totals$NincidDeath * 2
 
 # Load resampling file
-#resampled_sims <- read_csv("reports/resample_sims.csv")
+resampled_sims <- read_csv("reports/resample_sims.csv") 
 
 #state_hosp_totals <- inner_join(state_hosp_totals , resampled_sims) %>%
 #  select(-sim_num) %>% rename(sim_num = new_sim_num)

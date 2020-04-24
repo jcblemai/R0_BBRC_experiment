@@ -28,8 +28,8 @@ change_R0_sd <- getSd(change_R0_mean, change_R0_range[1], change_R0_range[2])
 
 # Assume reduction on the 20th of March
 #start_descent <- as.Date("2020-03-15")
-start_descent <- as.Date("2020-03-08")
-end_descent <- as.Date("2020-03-22")
+start_descent <- as.Date("2020-03-14")
+end_descent <- as.Date("2020-03-28")
 start_ascent <- as.Date("2020-05-01")
 end_ascent <- as.Date("2020-05-03")
 
@@ -42,7 +42,7 @@ ascent_dates <- which(dates > start_ascent & dates <= end_ascent)
 release_dates <- which(dates > end_ascent)
 
 # Random draw of baseline R0
-baseline_R0s <- runif(dim(places)[1], 2.6, 3.6)
+baseline_R0s <- runif(dim(places)[1], 2, 3)
 names(baseline_R0s) <-  places$ShortName
 NPI <- as.data.frame(matrix(0, dim(places)[1],length(dates)))
 colnames(NPI) <- as.Date(dates)
@@ -53,6 +53,7 @@ for (cnt in places$ShortName) {
   baseline_R0 <- baseline_R0s[cnt]
   NPI[cnt, baseline_dates] <- baseline_R0
   rval_r <- baseline_R0 * truncnorm::rtruncnorm(n = 1, a = 0, b = 2, mean = change_R0_mean, sd = change_R0_sd)
+  rval_r <- baseline_R0 / baseline_R0 * runif(1, .4, .9) #hack !
   NPI[cnt, low_dates] <- rval_r
   
   # HERER IS THE DIFFERENCE BETWEEN SCENARIOS
@@ -64,6 +65,8 @@ for (cnt in places$ShortName) {
       release_rval <- truncnorm::rtruncnorm(n = 1, a = 0.8, b = 1, mean = 0.9, sd = 0.07)
   }  else if (grepl("R0-1dot2", setupname)) {
     release_rval <- truncnorm::rtruncnorm(n = 1, a = 0, b = 3.5, mean = 1.2, sd = 0.07)
+  } else if (grepl("R0-1dot5", setupname)) {
+    release_rval <- truncnorm::rtruncnorm(n = 1, a = 0, b = 3.5, mean = 1.5, sd = 0.07)
   } else if (grepl("TestIsolate", setupname)) {
     release_rval <- truncnorm::rtruncnorm(n = 1, a = 0, b = 3.5, mean = baseline_R0 * rfrac_testisolate, sd = 0.07)
   }

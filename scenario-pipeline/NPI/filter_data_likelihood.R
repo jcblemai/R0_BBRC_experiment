@@ -1,31 +1,28 @@
-
-# Preamble ---------------------------------------------------------------------
+#Preamble
 library(tidyverse)
 library(covidcommon)
 library(report.generation)
+library(kableExtra)
+library(gridExtra)
 library(foreach)
-library(magrittr)
-library(itertools)
+
 
 ## Block loads the config file and geodata
-config <- covidcommon:::load_config("config_filter.yml")
+config <- covidcommon:::load_config("config.yml")
 scn_dirs <- paste(config$name,config$interventions$scenarios,sep='_')
 scenario_labels <- config$report$formatting$scenario_labels
 
-nfiles <- 100#config$nsimulations## set to NULL or the actual number of sim files to include for final report
+nfiles <- config$nsimulations## set to NULL or the actual number of sim files to include for final report
 reportStateUSPS <- "CH" ## e.g. CA
 
-var_to_filter <- config$report$filtering$var_to_filter
-
-sim_data_dict <- c("NincidDeath" = "deaths",
-                   "NhospCurr" = "hosp_curr",
-                   "NincidHosp" = "hosp_incid")
+col_to_filter_sim <- "NhospCurr"
+col_to_filter_data<- c("NincidDeath" = "deaths", "NhospCurr" = "hosp_curr")
 
 n_sim_target <- nfiles
-data_path <- config$report$filtering$data_path
-out_file <- paste0("model_output/sim_resampling_", paste(config$interventions$scenarios, collapse = "-"), ".csv")
 
 # Functions --------------------------------------------------------------------
+
+alpha <- .3    # Underreporting for cases from Imperial College estimates for CH
 
 # Compute weights and resample
 logSumExp_R <- function(lx, ...) {
@@ -35,72 +32,45 @@ logSumExp_R <- function(lx, ...) {
 }
 
 # Function to compute log-likelihood of trajectories
-logLikObs <- function(obs, sim, alpha = 1, k = 1, dist = "pois", replace_zero = F) {
-  if(replace_zero)
-    sim[sim==0] <- 1
-  
+logLikCases <- function(cases, sim_cases, alpha, k = 1, dist = "pois") {
   if (dist == "pois") {
-    lls <- dpois(obs, alpha * sim, log = T)
+    lls <- dpois(cases, alpha * sim_cases, log = T)
   } else if (dist == "nbinom") {
-    lls <- dnbinom(obs, mu = alpha * sim, size = k, log = T)
+    lls <- dnbinom(cases, mu = alpha * sim_cases, size = k, log = T)
   }
   sum(lls, na.rm = T)
 }
 
+state_hosp_totals <- load_hosp_geocombined_totals(scn_dirs,
+                                                  num_files = nfiles,
+                                                  scenariolabels = scenario_labels,
+                                                  name_filter = "csv") %>% 
+  mutate(pdeath = "", scenario_name = factor(scenario_name, levels = scenario_labels),
+         usim_num = paste(scenario_num, sim_num, sep = "-"))
 
-# Load sims and data -----------------------------------------------------------
-# Simulation outputs
-state_hosp_totals <- list()
-for (i in 1:length(config$hospitalization$parameters$p_death_names)) {
-  state_hosp_totals[[i]] <- load_hosp_geocombined_totals(scn_dirs[i],
-                                                         num_files = nfiles,
-                                                         scenariolabels = config$report$formatting$scenario_labels,
-                                                         # name_filter= config$hospitalization$parameters$p_death_names[i]
-                                                         name_filter = "csv") %>%
-    mutate(pdeath=config$hospitalization$parameters$p_death[i],
-           usim_num = paste(scenario_num, i, sim_num, sep = "-"))
-}
 
-state_hosp_totals <- dplyr::bind_rows(state_hosp_totals)
+national_data <- read_csv("reports/national_data.csv") %>% 
+  # mutate(cases = cumsum(cases)) %>%
+  filter(date < "2020-04-08")
 
-# Data
-data <- read_csv(data_path)
 
-obs <- data %>% 
-  select(date, one_of(sim_data_dict[var_to_filter])) %>% 
-  set_colnames(c("time", var_to_filter))
-
-# Compute log-likelihood of data for each sim
-# This part can be parallelized
-ll_data <- foreach(sim = isplit(state_hosp_totals, state_hosp_totals$usim_num),
-                   .combine = rbind,
-                   .packages = c("dplyr", "magrittr")
+ll_data <- foreach(s = unique(state_hosp_totals$usim_num),
+                   .combine = rbind
 ) %do% {
+  sim <- state_hosp_totals[state_hosp_totals$usim_num == s,c("time", col_to_filter_sim)] %>% 
+    magrittr::set_colnames(c("date", "sim"))
+  obs <- national_data[, c("date", col_to_filter_data[col_to_filter_sim])] %>% 
+    magrittr::set_colnames(c("date", "obs"))
   
-  combined <- sim$value %>% 
-    select(time, pdeath, one_of(var_to_filter)) %>% 
-    inner_join(obs, ., by = "time", suffix = c(".obs", ".sim")) 
-  
-  res <- lapply(seq_along(var_to_filter), function(i)
-    sum(logLikObs(combined[[paste0(var_to_filter[i], ".obs")]],
-                  combined[[paste0(var_to_filter[i], ".sim")]],
-                  dist = config$report$filtering$dist[i],                  # distribution to use for observation model
-                  alpha = config$report$filtering$under_reporting,         # under reporting of observations
-                  k = config$report$filtering$k[i],                        # aggregations parameter for NB distribution
-                  replace_zero = config$report$filtering$replace_zero[i])) # replace zeros in sims to avoid Inf values
-    ) %>% 
-    as.data.frame() %>% 
-    set_colnames(var_to_filter) %>% 
-    mutate(usim_num = sim$key[[1]])
-  
-  # compute total loglik
-  res$ ll <- sum(res[1, var_to_filter])
-  res
+  inner_join(sim, obs) %>% 
+    na.omit() %>% 
+    summarise(ll = logLikCases(obs, sim + 1, k = 1, alpha = 1, "nbinom")) %>% 
+    mutate(usim_num = s)
 }
 
-# Compute likelihood weights
+# We here only use the likelihood associated to hospitalizations
 ll_data <- ll_data %>% 
-  inner_join(distinct(state_hosp_totals, usim_num, sim_num, scenario_num, pdeath)) %>% 
+  inner_join(distinct(state_hosp_totals, usim_num, sim_num, scenario_num)) %>% 
   group_by(scenario_num) %>% 
   filter(!is.infinite(ll)) %>% 
   mutate(w = exp(ll - logSumExp_R(ll))) %>% 
@@ -111,17 +81,16 @@ ll_data <- ll_data %>%
 resampled_sims <- bind_rows(lapply(
   unique(ll_data$scenario_num), 
   function(x) 
-    sample_n(select(ll_data, scenario_num, pdeath, sim_num, w) %>% 
+    sample_n(select(ll_data, scenario_num, sim_num, w) %>% 
                filter(scenario_num == x),
              size = n_sim_target,
              replace = T,
              weight = w))) %>% 
-  arrange(scenario_num, pdeath, sim_num) %>% 
-  select(scenario_num, pdeath, sim_num) 
+  arrange(scenario_num, sim_num) %>% 
+  select(scenario_num, sim_num) 
 
 resampled_sims <- resampled_sims %>% 
-  group_by(scenario_num, pdeath) %>% 
+  group_by(scenario_num) %>% 
   mutate(new_sim_num = row_number())
 
-write_csv(resampled_sims, out_file)
-
+write_csv(resampled_sims, "reports/resample_sims.csv")
