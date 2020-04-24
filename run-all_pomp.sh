@@ -3,11 +3,11 @@
 # We assume running this from the script directory
 lls=('d-deltah')
 #lls=('d')
-#places=('CH')
+places=('CH')
 
 #places=('FR' 'GE' 'GR' 'JU' 'NE' 'TI' 'VD' 'VS' 'ZH' 'BS' 'BL')
 #places=('AG' 'AI' 'AR' 'GL' 'NW' 'OW' 'SG' 'SH' 'SO' 'SZ' 'TG' 'UR' 'ZG' 'LU' 'BE')
-places=("AG" "BE" "BL" "BS" "FR" "GE" "GR" "JU" "NE" "TI" "UR" "VS" "VD" "ZH")
+#places=("AG" "BE" "BL" "BS" "FR" "GE" "GR" "JU" "NE" "TI" "UR" "VS" "VD" "ZH")
 
 # missing: AG AI AR GL NW OW SG SH SO SZ TG UR ZG "LU"
 #'BE' 'BL' 'BS' 
