@@ -25,41 +25,52 @@ state_names <- mapply(
   comp = names(n_compartments)) %>% 
   unlist() %>% 
   c("H_curr", "U_curr", "D", "X", "N",
-    "a_I", "a_H", "a_U", "a_D", "a_DH", "a_DI", "a_DU", "a_O", "a_deltaH",
-    "Rt", "tot_I") # prefix a_ represent accumulator variables for incidences
+    "a_I", "a_H", "a_U", "a_D", "a_DH", "a_DI", "a_DU", "a_O", "a_OU", "a_deltaH",
+    "a_deltaU","a_deltaID", "Rt", "tot_I") # prefix a_ represent accumulator variables for incidences
 
 # define parameter names for pomp
 ## process model parameters names to estimate
 
 ## initial value parameters to estimate
-param_iv_est_names <- c("I_0", "R0_0")
+param_iv_est_names <- c()
 
 ## fixed process model parameters 
 rate_names <- c("e2i", "i2h", "id2o", "i2o", "hs2ra", "hs2rb", "hd2d", "h2u", "us2ra", "us2rb", "ud2d")
 prob_names <- c("psevere", "pi2d", "pi2h", "pi2hs", "ph2u", "pu2d", "pusa", "phsa")
-#param_proc_fixed_names <- c("pop", rate_names, prob_names,  "alpha", "std_W")
+regular_names <- c(rate_names, prob_names) # regular parameters (as opposed to initial value parameters)
+
 # define parameter names for pomp
 ## process model parameters names to estimate
-if (ll_cases) {
+if (use_case_incid) {
   param_proc_est_names <- c("std_X", "k", "epsilon")
-  param_proc_fixed_names <- c("pop", rate_names, prob_names, "std_W")
+  param_proc_fixed_names <- c("pop", rate_names, prob_names)
 } else {
   param_proc_est_names <- c("std_X")
-  param_proc_fixed_names <- c("pop", rate_names, prob_names, "std_W", "k", "epsilon")
+  param_proc_fixed_names <- c("pop", rate_names, prob_names, "k", "epsilon")
 }
 
 if (!is.null(config$parameters_to_fit)) {
-  allin <- unlist(lapply(names(config$parameters_to_fit), function(x) !(x %in% c(rate_names, prob_names))))
+  regular_to_fit <- names(config$parameters_to_fit)[names(config$parameters_to_fit) %in% regular_names]
+  iv_to_fit <- names(config$parameters_to_fit)[!(names(config$parameters_to_fit) %in% regular_to_fit)]
+  
+  allin <- unlist(lapply(regular_to_fit, function(x) !(x %in% regular_names)))
   if (sum(allin) == 0) {
-  param_proc_est_names <- c(param_proc_est_names, names(config$parameters_to_fit))
-  param_proc_fixed_names <- param_proc_fixed_names[!(param_proc_fixed_names %in% names(config$parameters_to_fit))]
+    param_proc_est_names <- c(param_proc_est_names, regular_to_fit)
+    param_proc_fixed_names <- param_proc_fixed_names[!(param_proc_fixed_names %in% names(config$parameters_to_fit))]
+  }
+  
+  if (length(iv_to_fit) > 0) {
+    param_iv_est_names <- iv_to_fit
+    param_iv_fixed_names <- c()
+  } else {
+    param_iv_fixed_names <- c("I_0", "R0_0")
   }
 }
 
 # all parameter names to estimate
 param_est_names <- c(param_proc_est_names, param_iv_est_names)
 # all fixed parameters
-param_fixed_names <- c(param_proc_fixed_names)
+param_fixed_names <- c(param_proc_fixed_names, param_iv_fixed_names)
 
 # all param names
 param_names <- c(param_est_names, param_fixed_names)
@@ -72,16 +83,20 @@ param_rates_in_days_names <- rate_names
 # measurement model
 dmeasure.Csnippet <- Csnippet(glue("
   double ll_na;
-  double ll_c, ll_h, ll_hc, ll_d, ll_deltah, ll_dh, ll_du, ll_di;
+  double ll_c, ll_h, ll_hc, ll_d, ll_deltah, ll_deltau, ll_dh, ll_du, ll_di;
   ll_na = (give_log) ? 0 : 1;
-  if (!ISNA(cases)) {
-    ll_c = dnbinom_mu(cases, k, epsilon * a_I, give_log);
-    if ({{downweight}} == 1) {
-      ll_c = (give_log) ? ll_c + log(0.5) : ll_c * 0.5;
-    }
+  if (!ISNA(case_incid)) {
+    ll_c = dnbinom_mu(case_incid, k, epsilon * a_I, give_log);
   } else {
     ll_c = ll_na;
   }
+  if (!ISNA(delta_hosp)) { 
+      // if info on releases not available, give hosp curr
+      ll_deltau = dskellam(delta_icu, a_U, a_DU + a_OU, give_log);
+    } else {
+      ll_deltau = ll_na;
+    }
+  
   if (!ISNA(delta_ID)) {
     ll_deltah = dskellam(delta_ID, a_H, a_DH + a_DU, give_log);
   } else {
@@ -91,11 +106,6 @@ dmeasure.Csnippet <- Csnippet(glue("
     } else {
       ll_deltah = ll_na;
     }
-  }
-  if (!ISNA(hosp_curr)) {
-    ll_hc = dpois(hosp_curr, H_curr, give_log);
-  } else {
-    ll_hc = ll_na;
   }
   if (!ISNA(hosp_incid)) {
     ll_h = dpois(hosp_incid, a_H, give_log);
@@ -112,32 +122,31 @@ dmeasure.Csnippet <- Csnippet(glue("
   }
   }
   
-  if (!ISNA(deaths)) {
-   ll_d = dpois(deaths, a_D, give_log);
+  if (!ISNA(death_incid)) {
+   ll_d = dpois(death_incid, a_D, give_log);
   } else {
     ll_d = ll_na;
   }
   
   if (give_log) {
-    lik =  {{lik_log}};
+    lik =  {{parsed_lik$lsum}};
   } else {
-    lik =  {{lik}};
+    lik =  {{parsed_lik$lprod}};
   }
                               ", .open = "{{", .close = "}}"))
 
 ## NegBinomial simulator
 rmeasure.Csnippet <- Csnippet("
                       int deltah = rskellam(a_H, a_DH + a_DU);
-                      deaths = rpois(a_D);
+                      death_incid = rpois(a_D);
                       hosp_curr = rpois(H_curr);
                       hosp_incid = rpois(a_H);
-                      cases = rnbinom_mu(k, epsilon * a_I);
+                      case_incid = rnbinom_mu(k, epsilon * a_I);
                       delta_hosp = deltah;
                       delta_ID = deltah + rpois(a_O);
                       ")
 
 # Process model -----------------------------------------------------------------
-
 
 # create C code for each district
 proc.Csnippet <- Csnippet("
@@ -153,13 +162,13 @@ proc.Csnippet <- Csnippet("
                           // S compartment
                           rate[0] = foi;   // infections
                           // E compartment
-                          rate[1] = e2i;    // transition to L
+                          rate[1] = e2i;    // transition to I1
                           // I1 compartment
                           rate[2] = i2o * 3;  // transition to I2
                            // I2 compartment
                           rate[3] = i2o * 3;  // transition to I3
                           // I3 compartment
-                          rate[4] = psevere * (1-pi2h) * i2o * 3;    // deaths without hospitalization
+                          rate[4] = psevere * (1-pi2h) * i2o * 3;    // death_incid without hospitalization
                           rate[5] = psevere * pi2h * i2o * 3;    // hospitalizations
                           rate[6] = (1-psevere) * i2o * 3;      // recovery from infection
                           
@@ -248,8 +257,11 @@ proc.Csnippet <- Csnippet("
                           a_DH += dN[20];
                           a_DU += dN[24];
                           a_D  = a_DH + a_DI + a_DU;
+                          a_OU += dN[21] + dN[23]; // discharged from ICU
                           a_O  += dN[13] + dN[15] + dN[21] + dN[23]; // discharged from hospital
                           a_deltaH = a_H - a_DH - a_DU - a_O;
+                          a_deltaID = a_H - a_DH - a_DU;
+                          a_deltaU = a_U - a_DU - a_OU;
                           // Current
                           U_curr = U_sa + U_sb + U_d1 + U_d2;
                           H_curr = H_sa + H_sb1 + H_sb2 + H + H_d1 + H_d2 + U_curr;
@@ -295,42 +307,11 @@ init.Csnippet <- Csnippet("X = log(R0_0 * i2o);
                           a_DI = 0;
                           a_D = 0;
                           a_O = 0;
+                          a_OU = 0;
                           a_deltaH = 0;
+                          a_deltaID = 0;
+                          a_deltaU = 0;
                           R   = 0;
                           S   = nearbyint(pop - I1);
                           N   = pop;
                           tot_I = 0;")
-
-
-
-
-# Model specification -----------------------------------------------------
-
-## state variable names:
-# S:  Susceptibles
-# E:  Exposed
-# L:  Latent (non-symptomatic but infectious)
-# I:  Infected
-# R:  Recovered
-
-## data names:
-# hosp: reported number of hospitalized people
-
-## parameter names:
-### Pop dynamics
-# N: total population
-### Infection dynamics (suffix _s|d indicate survival/death outcome)
-# l2i: rate L -> I
-# i2d: rate I -> D
-# i2h: rate I -> H/H_s
-# h2hd: rate H -> H_d
-# hs2r: rate H_s -> R
-# hd2d: rate H_d -> D
-# h2u: rate H -> U_s/U_d
-# us2r: rate U_s -> R
-# ud2d: rate U_d -> D
-#### Extra-demographic stochasticity
-# tau: generation time
-# std_W:    standard deviation of the weiner process to perturb the foi       
-### Measurement model
-# epsilon:  under-reporting fraction
