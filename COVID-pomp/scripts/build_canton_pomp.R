@@ -24,7 +24,7 @@ option_list <- list(
   make_option(c("-r", "--run_level"), default = 1, type = "numeric", help = "run level for MIF"),
   make_option(c("-p", "--place"), default = "BE", type = "character", help = "name of place to be run, a place abbrv. in CH"),
   make_option(c("-l", "--likelihood"), default = "d-deltah", type = "character", help = "likelihood to be used for filtering"),
-  make_option(c("-s", "--suffix"), default = "test", type = "character", help = "custom suffix to add")
+  make_option(c("-s", "--suffix"), default = "", type = "character", help = "custom suffix to add")
   )
 
 opt <- parse_args(OptionParser(option_list = option_list))
@@ -68,7 +68,7 @@ suffix <- buildSuffix(
   place = place,
   lik_components = parsed_lik$components,
   params_to_fit = config$parameters_to_fit,
-  other =  c(config$sdfrac * 100, config$suffix)
+  other =  c(config$sdfrac * 100, opt$suffix)
 )
 
 # Data ---------------------------------------------------------------
