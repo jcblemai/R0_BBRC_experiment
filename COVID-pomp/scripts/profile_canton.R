@@ -26,7 +26,8 @@ option_list = list(
   make_option(c("-p", "--place"), action="store", default='CH', type='character', help="name of place to be run, a Canton abbrv. in CH"),
   make_option(c("-l", "--likelihood"), action="store", default='d-deltah', type='character', help="likelihood to be used for filtering"),
   make_option(c("-x", "--to_profile"), action="store", default='R0_0', type='character', help="Parameter over which to profile"),
-  make_option(c("-n", "--n_prof"), action="store", default=4, type='numeric', help="Number of initializations per parameter")
+  make_option(c("-n", "--n_prof"), action="store", default=4, type='numeric', help="Number of initializations per parameter"),
+  make_option(c("-s", "--suffix"), default = "", type = "character", help = "custom suffix to add")
 )
 opt <- parse_args(OptionParser(option_list=option_list))
 config <- yaml::read_yaml(opt$config)
@@ -66,11 +67,10 @@ suffix <- buildSuffix(
 )
 
 suffix_prof <- str_c(suffix, str_c("_prof-", opt$to_profile, collapse = "-"))
-ll_filename <- glue("{opt$b}results/loglik_exploration_{suffix}.csv")
-mif_filename <- glue("{opt$b}results/profiling_{suffix}.rda")
 ll_prof_filename <- glue("{opt$b}results/profiling_loglik_{suffix_prof}.csv")
 
 # Initial parameters -----------------------------------------------------------
+source(glue("{opt$b}scripts/{config$model}"))
 load(glue("{opt$b}interm/pomp_{suffix}.rda"))
 params <- covid@params
 
@@ -88,6 +88,9 @@ init_params <- getInitParams(config = config,
                              npar = opt$n_prof,
                              profile = T,
                              pars_to_profile = pars_to_profile)
+
+# Time before which we constrain R0
+tvary <- dateToYears(as.Date(config$tvary))
 
 job_rw.sd <- getRWSD(config = config, rw.sd_param = rw.sd_param, tvary = tvary,
                      profile = T, pars_to_profile = pars_to_profile)
