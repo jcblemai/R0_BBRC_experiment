@@ -12,16 +12,16 @@ likelihoods:
   to_plot:
      - d-deltah
 tvary: "2020-03-05"
-sdfrac: 0.3
+sdfrac: .3
 parameters_to_fit:
   R0_0:
-    upper: 3.5
+    upper: 3
     lower: 1.5
     transform: log
     rw_sd: ivp
   I_0:
-    upper: 100
-    lower: 10
+    upper: 50
+    lower: 1
     transform: logit
     rw_sd: ivp
   id2o:
@@ -29,6 +29,10 @@ parameters_to_fit:
     lower: 18
     transform: log
     rw_sd: regular
+profile_bounds:
+  R0_0:
+    upper: 4.5
+    lower: 1.5
 places:
   - CH
   - BE
