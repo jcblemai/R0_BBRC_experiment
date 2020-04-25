@@ -81,6 +81,17 @@ param_rates_in_days_names <- rate_names
 # Measurment model  -------------------------------------------------------
 
 # measurement model
+# dmeasure.Csnippet <- Csnippet("
+# double ll_na;
+# ll_na = (give_log) ? 0 : 1;
+# double ll_c, ll_h, ll_hc, ll_d, ll_deltah, ll_deltau, ll_dh, ll_du, ll_di;
+#                                if (!ISNA(delta_hosp)) { 
+#                                // if info on releases not available, give hosp curr
+#      ll_deltah = dskellam(delta_hosp, a_H, a_DH + a_DU + a_O, give_log);
+#      } else {
+#        ll_deltah = ll_na;
+#      } lik = ll_deltah;
+#      ")
 dmeasure.Csnippet <- Csnippet(glue("
   double ll_na;
   double ll_c, ll_h, ll_hc, ll_d, ll_deltah, ll_deltau, ll_dh, ll_du, ll_di;
@@ -90,17 +101,17 @@ dmeasure.Csnippet <- Csnippet(glue("
   } else {
     ll_c = ll_na;
   }
-  if (!ISNA(delta_hosp)) { 
+ // if (!ISNA(ll_deltau)) {
       // if info on releases not available, give hosp curr
-      ll_deltau = dskellam(delta_icu, a_U, a_DU + a_OU, give_log);
-    } else {
-      ll_deltau = ll_na;
-    }
-  
+  //   ll_deltau = dskellam(delta_icu, a_U, a_DU + a_OU, give_log);
+ //  } else {
+  //    ll_deltau = ll_na;
+ //   }
+
   if (!ISNA(delta_ID)) {
     ll_deltah = dskellam(delta_ID, a_H, a_DH + a_DU, give_log);
   } else {
-      if (!ISNA(delta_hosp)) { 
+      if (!ISNA(delta_hosp)) {
       // if info on releases not available, give hosp curr
       ll_deltah = dskellam(delta_hosp, a_H, a_DH + a_DU + a_O, give_log);
     } else {
@@ -113,7 +124,7 @@ dmeasure.Csnippet <- Csnippet(glue("
   if (!ISNA(delta_ID)) {
     ll_h = dskellam(delta_ID, a_H, a_DH + a_DU, give_log);
   } else {
-  if (!ISNA(delta_hosp)) { 
+  if (!ISNA(delta_hosp)) {
     // if info on releases not available, give hosp curr
     ll_h = dskellam(delta_hosp, a_H, a_DH + a_DU + a_O, give_log);
   } else {
@@ -121,13 +132,13 @@ dmeasure.Csnippet <- Csnippet(glue("
   }
   }
   }
-  
+
   if (!ISNA(death_incid)) {
    ll_d = dpois(death_incid, a_D, give_log);
   } else {
     ll_d = ll_na;
   }
-  
+
   if (give_log) {
     lik =  {{parsed_lik$lsum}};
   } else {

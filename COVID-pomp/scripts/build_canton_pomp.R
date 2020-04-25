@@ -22,8 +22,8 @@ option_list <- list(
   make_option(c("-j", "--jobs"), default = detectCores(), type = "numeric", help = "number of cores used"),
   make_option(c("-o", "--cores"), default = detectCores(), type = "numeric", help = "number of cores used"),
   make_option(c("-r", "--run_level"), default = 1, type = "numeric", help = "run level for MIF"),
-  make_option(c("-p", "--place"), default = "BE", type = "character", help = "name of place to be run, a place abbrv. in CH"),
-  make_option(c("-l", "--likelihood"), default = "d-deltah", type = "character", help = "likelihood to be used for filtering"),
+  make_option(c("-p", "--place"), default = "VD", type = "character", help = "name of place to be run, a place abbrv. in CH"),
+  make_option(c("-l", "--likelihood"), default = "deltah", type = "character", help = "likelihood to be used for filtering"),
   make_option(c("-s", "--suffix"), default = "", type = "character", help = "custom suffix to add")
   )
 
@@ -116,7 +116,7 @@ globals <-  glue("double tvary = {tvary};
                  double hcfr = {hcfr}; 
                  double sdfrac = {sdfrac};")
 covid <- pomp(
-  data = epidata,  # set data
+  data = select(epidata, -date),  # set data
   times = "time",  # time column
   t0 = t_start - dt_yrs,     # initialization time
   paramnames = param_names,  # parameter names
@@ -175,7 +175,7 @@ t1 <- system.time({
     parstart = iter(init_params, by = "row"),
     .inorder = F,
     .packages = "pomp",
-    .errorhandling = "remove"
+    .errorhandling = "stop"
   ) %dopar% {
     mif2(covid,
          params = parstart,
@@ -184,7 +184,7 @@ t1 <- system.time({
          cooling.type = "geometric",
          cooling.fraction.50 = findAlpha(sir_Nmif[run_level], nrow(epidata), 0.05),
          rw.sd = job_rw.sd,
-         verbose = F
+         verbose = T
     )
   }
 })

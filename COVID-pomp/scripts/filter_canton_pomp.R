@@ -18,7 +18,7 @@ select <- dplyr::select
 
 option_list = list(
   make_option(c("-c", "--config"), default='pomp_config.yaml', type='character', help="path to the config file"),
-  make_option(c("-p", "--place"), default='BE', type='character', help="name of place to be run, a place abbrv. in CH"),
+  make_option(c("-p", "--place"), default='CH', type='character', help="name of place to be run, a place abbrv. in CH"),
   make_option(c("-a", "--asindex"), default=0, type='numeric', help="whether to use the index of a slurm array"),
   make_option(c("-b", "--basepath"), default="COVID-pomp/", type='character', help="base path"),
   make_option(c("-j", "--jobs"), default=detectCores(), type='numeric', help="number of cores used"),
@@ -26,7 +26,7 @@ option_list = list(
   make_option(c("-r", "--run_level"), default = 1, type = "numeric", help = "run level for MIF"),
   make_option(c("-n", "--nfilter"), default=10, type='numeric', help="Number of filtering iterations"),
   make_option(c("-l", "--likelihood"), default='d-deltah', type='character', help="likelihood to be used for filtering"),
-  make_option(c("-s", "--suffix"), default = "", type = "character", help = "custom suffix to add")
+  make_option(c("-s", "--suffix"), default = "test2", type = "character", help = "custom suffix to add")
 )
 
 opt <-parse_args(OptionParser(option_list=option_list))
@@ -75,7 +75,7 @@ best_params <- liks %>%
   arrange(desc(loglik)) %>% 
   # filter(loglik > max(loglik) - 4) %>% 
   # select(-contains("log")) %>%
-  slice(1:2)
+  slice(1:8)
 
 t3 <- system.time({
   filter_dists <- foreach(pari = iter(best_params, "row"),
@@ -116,6 +116,7 @@ filter_dists <- readRDS(filter_filename)
 filter_stats <- filter_dists %>% 
   group_by(time, parset, var) %>% 
   summarise(mean = mean(value, na.rm = T),
+            median = median(value, na.rm = T),
             q025 = quantile(value, 0.025, na.rm = T),
             q975 = quantile(value, 0.975, na.rm = T),
             q25 = quantile(value, 0.25, na.rm = T),
@@ -170,3 +171,18 @@ p <- ggplot(filter_stats %>%
 
 print('ok)')
 ggsave(p, filename = glue("{opt$b}results/figs/plot_{suffix}.png"), width = 9, height = 6)
+
+
+
+
+p <- ggplot(filter_stats %>% 
+              filter(var %in% "Rt", parset == 1,
+                     time <= dateToYears(as.Date("2020-03-08"))), 
+            aes(x = time)) +
+  geom_ribbon(aes(ymin = q025, ymax = q975, fill = parset), alpha = .2) +
+  geom_ribbon(aes(ymin = q25, ymax = q75, fill = parset), alpha = .2) +
+  geom_line(aes(y = median)) +
+  # geom_point(data = epidata4plot,  aes(y = value)) +
+  facet_wrap(~var, scales = "free")  +
+  theme_bw() +
+  scale_x_continuous(labels = yearsToDateLabel)
