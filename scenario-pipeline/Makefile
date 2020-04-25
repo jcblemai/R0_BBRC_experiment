@@ -3,51 +3,51 @@
 
 RSCRIPT=Rscript
 PYTHON=python3.7
-NCOREPER=8
+NCOREPER=12
 PIPELINE=COVIDScenarioPipeline
 CONFIG=config.yml
 
 
 .files:
 	mkdir $@
-report: .files/30_simulation_Stopped .files/30_hospitalization_Stopped_low .files/30_hospitalization_Stopped_med .files/30_hospitalization_Stopped_high .files/30_simulation_R0-1dot2 .files/30_hospitalization_R0-1dot2_low .files/30_hospitalization_R0-1dot2_med .files/30_hospitalization_R0-1dot2_high .files/30_simulation_R0-1dot5 .files/30_hospitalization_R0-1dot5_low .files/30_hospitalization_R0-1dot5_med .files/30_hospitalization_R0-1dot5_high
+report: .files/1000_simulation_Stopped .files/1000_hospitalization_Stopped_low .files/1000_hospitalization_Stopped_med .files/1000_hospitalization_Stopped_high .files/1000_simulation_R0-1dot2 .files/1000_hospitalization_R0-1dot2_low .files/1000_hospitalization_R0-1dot2_med .files/1000_hospitalization_R0-1dot2_high .files/1000_simulation_R0-1dot5 .files/1000_hospitalization_R0-1dot5_low .files/1000_hospitalization_R0-1dot5_med .files/1000_hospitalization_R0-1dot5_high
 	Rscript compile_Rmd.R
-.files/30_simulation_Stopped: .files 
-	$(PYTHON) $(PIPELINE)/simulate.py -c $(CONFIG) -s Stopped -n 30 -j $(NCOREPER)
-	touch .files/30_simulation_Stopped
-.files/30_hospitalization_Stopped_low: .files .files/30_simulation_Stopped
+.files/1000_simulation_Stopped: .files 
+	$(PYTHON) $(PIPELINE)/simulate.py -c $(CONFIG) -s Stopped -n 1000 -j $(NCOREPER)
+	touch .files/1000_simulation_Stopped
+.files/1000_hospitalization_Stopped_low: .files .files/1000_simulation_Stopped
 	$(RSCRIPT) $(PIPELINE)/R/scripts/hosp_run.R -s Stopped -d low -j $(NCOREPER) -c $(CONFIG)
-	touch .files/30_hospitalization_Stopped_low
-.files/30_hospitalization_Stopped_med: .files .files/30_simulation_Stopped
+	touch .files/1000_hospitalization_Stopped_low
+.files/1000_hospitalization_Stopped_med: .files .files/1000_simulation_Stopped
 	$(RSCRIPT) $(PIPELINE)/R/scripts/hosp_run.R -s Stopped -d med -j $(NCOREPER) -c $(CONFIG)
-	touch .files/30_hospitalization_Stopped_med
-.files/30_hospitalization_Stopped_high: .files .files/30_simulation_Stopped
+	touch .files/1000_hospitalization_Stopped_med
+.files/1000_hospitalization_Stopped_high: .files .files/1000_simulation_Stopped
 	$(RSCRIPT) $(PIPELINE)/R/scripts/hosp_run.R -s Stopped -d high -j $(NCOREPER) -c $(CONFIG)
-	touch .files/30_hospitalization_Stopped_high
-.files/30_simulation_R0-1dot2: .files 
-	$(PYTHON) $(PIPELINE)/simulate.py -c $(CONFIG) -s R0-1dot2 -n 30 -j $(NCOREPER)
-	touch .files/30_simulation_R0-1dot2
-.files/30_hospitalization_R0-1dot2_low: .files .files/30_simulation_R0-1dot2
+	touch .files/1000_hospitalization_Stopped_high
+.files/1000_simulation_R0-1dot2: .files 
+	$(PYTHON) $(PIPELINE)/simulate.py -c $(CONFIG) -s R0-1dot2 -n 1000 -j $(NCOREPER)
+	touch .files/1000_simulation_R0-1dot2
+.files/1000_hospitalization_R0-1dot2_low: .files .files/1000_simulation_R0-1dot2
 	$(RSCRIPT) $(PIPELINE)/R/scripts/hosp_run.R -s R0-1dot2 -d low -j $(NCOREPER) -c $(CONFIG)
-	touch .files/30_hospitalization_R0-1dot2_low
-.files/30_hospitalization_R0-1dot2_med: .files .files/30_simulation_R0-1dot2
+	touch .files/1000_hospitalization_R0-1dot2_low
+.files/1000_hospitalization_R0-1dot2_med: .files .files/1000_simulation_R0-1dot2
 	$(RSCRIPT) $(PIPELINE)/R/scripts/hosp_run.R -s R0-1dot2 -d med -j $(NCOREPER) -c $(CONFIG)
-	touch .files/30_hospitalization_R0-1dot2_med
-.files/30_hospitalization_R0-1dot2_high: .files .files/30_simulation_R0-1dot2
+	touch .files/1000_hospitalization_R0-1dot2_med
+.files/1000_hospitalization_R0-1dot2_high: .files .files/1000_simulation_R0-1dot2
 	$(RSCRIPT) $(PIPELINE)/R/scripts/hosp_run.R -s R0-1dot2 -d high -j $(NCOREPER) -c $(CONFIG)
-	touch .files/30_hospitalization_R0-1dot2_high
-.files/30_simulation_R0-1dot5: .files 
-	$(PYTHON) $(PIPELINE)/simulate.py -c $(CONFIG) -s R0-1dot5 -n 30 -j $(NCOREPER)
-	touch .files/30_simulation_R0-1dot5
-.files/30_hospitalization_R0-1dot5_low: .files .files/30_simulation_R0-1dot5
+	touch .files/1000_hospitalization_R0-1dot2_high
+.files/1000_simulation_R0-1dot5: .files 
+	$(PYTHON) $(PIPELINE)/simulate.py -c $(CONFIG) -s R0-1dot5 -n 1000 -j $(NCOREPER)
+	touch .files/1000_simulation_R0-1dot5
+.files/1000_hospitalization_R0-1dot5_low: .files .files/1000_simulation_R0-1dot5
 	$(RSCRIPT) $(PIPELINE)/R/scripts/hosp_run.R -s R0-1dot5 -d low -j $(NCOREPER) -c $(CONFIG)
-	touch .files/30_hospitalization_R0-1dot5_low
-.files/30_hospitalization_R0-1dot5_med: .files .files/30_simulation_R0-1dot5
+	touch .files/1000_hospitalization_R0-1dot5_low
+.files/1000_hospitalization_R0-1dot5_med: .files .files/1000_simulation_R0-1dot5
 	$(RSCRIPT) $(PIPELINE)/R/scripts/hosp_run.R -s R0-1dot5 -d med -j $(NCOREPER) -c $(CONFIG)
-	touch .files/30_hospitalization_R0-1dot5_med
-.files/30_hospitalization_R0-1dot5_high: .files .files/30_simulation_R0-1dot5
+	touch .files/1000_hospitalization_R0-1dot5_med
+.files/1000_hospitalization_R0-1dot5_high: .files .files/1000_simulation_R0-1dot5
 	$(RSCRIPT) $(PIPELINE)/R/scripts/hosp_run.R -s R0-1dot5 -d high -j $(NCOREPER) -c $(CONFIG)
-	touch .files/30_hospitalization_R0-1dot5_high
+	touch .files/1000_hospitalization_R0-1dot5_high
 
 
 rerun: rerun_simulations rerun_hospitalization
