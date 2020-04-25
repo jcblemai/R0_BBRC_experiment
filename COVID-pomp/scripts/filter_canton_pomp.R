@@ -18,7 +18,7 @@ select <- dplyr::select
 
 option_list = list(
   make_option(c("-c", "--config"), default='pomp_config.yaml', type='character', help="path to the config file"),
-  make_option(c("-p", "--place"), default='CH', type='character', help="name of place to be run, a place abbrv. in CH"),
+  make_option(c("-p", "--place"), default='VD', type='character', help="name of place to be run, a place abbrv. in CH"),
   make_option(c("-a", "--asindex"), default=0, type='numeric', help="whether to use the index of a slurm array"),
   make_option(c("-b", "--basepath"), default="COVID-pomp/", type='character', help="base path"),
   make_option(c("-j", "--jobs"), default=detectCores(), type='numeric', help="number of cores used"),
@@ -73,9 +73,8 @@ registerDoSNOW(cl)
 # Filter --------------------------------------------------------------------
 best_params <- liks %>%
   arrange(desc(loglik)) %>% 
-  # filter(loglik > max(loglik) - 4) %>% 
-  # select(-contains("log")) %>%
-  slice(1:8)
+  select(-contains("log")) %>%
+  slice(1:2)
 
 t3 <- system.time({
   filter_dists <- foreach(pari = iter(best_params, "row"),
