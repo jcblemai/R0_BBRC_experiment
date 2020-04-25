@@ -171,18 +171,3 @@ p <- ggplot(filter_stats %>%
 
 print('ok)')
 ggsave(p, filename = glue("{opt$b}results/figs/plot_{suffix}.png"), width = 9, height = 6)
-
-
-
-
-p <- ggplot(filter_stats %>% 
-              filter(var %in% "Rt", parset == 1,
-                     time <= dateToYears(as.Date("2020-03-08"))), 
-            aes(x = time)) +
-  geom_ribbon(aes(ymin = q025, ymax = q975, fill = parset), alpha = .2) +
-  geom_ribbon(aes(ymin = q25, ymax = q75, fill = parset), alpha = .2) +
-  geom_line(aes(y = median)) +
-  # geom_point(data = epidata4plot,  aes(y = value)) +
-  facet_wrap(~var, scales = "free")  +
-  theme_bw() +
-  scale_x_continuous(labels = yearsToDateLabel)
