@@ -22,8 +22,8 @@ option_list <- list(
   make_option(c("-j", "--jobs"), default = detectCores(), type = "numeric", help = "number of cores used"),
   make_option(c("-o", "--cores"), default = detectCores(), type = "numeric", help = "number of cores used"),
   make_option(c("-r", "--run_level"), default = 1, type = "numeric", help = "run level for MIF"),
-  make_option(c("-p", "--place"), default = "VD", type = "character", help = "name of place to be run, a place abbrv. in CH"),
-  make_option(c("-l", "--likelihood"), default = "deltah", type = "character", help = "likelihood to be used for filtering"),
+  make_option(c("-p", "--place"), default = "CH", type = "character", help = "name of place to be run, a place abbrv. in CH"),
+  make_option(c("-l", "--likelihood"), default = "d-deltah", type = "character", help = "likelihood to be used for filtering"),
   make_option(c("-s", "--suffix"), default = "", type = "character", help = "custom suffix to add")
   )
 

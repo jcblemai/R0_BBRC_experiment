@@ -18,7 +18,7 @@ select <- dplyr::select
 
 option_list = list(
   make_option(c("-c", "--config"), default='pomp_config.yaml', type='character', help="path to the config file"),
-  make_option(c("-p", "--place"), default='VD', type='character', help="name of place to be run, a place abbrv. in CH"),
+  make_option(c("-p", "--place"), default='CH', type='character', help="name of place to be run, a place abbrv. in CH"),
   make_option(c("-a", "--asindex"), default=0, type='numeric', help="whether to use the index of a slurm array"),
   make_option(c("-b", "--basepath"), default="COVID-pomp/", type='character', help="base path"),
   make_option(c("-j", "--jobs"), default=detectCores(), type='numeric', help="number of cores used"),
@@ -26,7 +26,7 @@ option_list = list(
   make_option(c("-r", "--run_level"), default = 1, type = "numeric", help = "run level for MIF"),
   make_option(c("-n", "--nfilter"), default=10, type='numeric', help="Number of filtering iterations"),
   make_option(c("-l", "--likelihood"), default='d-deltah', type='character', help="likelihood to be used for filtering"),
-  make_option(c("-s", "--suffix"), default = "test2", type = "character", help = "custom suffix to add")
+  make_option(c("-s", "--suffix"), default = "", type = "character", help = "custom suffix to add")
 )
 
 opt <-parse_args(OptionParser(option_list=option_list))
