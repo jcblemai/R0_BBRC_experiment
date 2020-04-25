@@ -210,8 +210,7 @@ setParameters <- function(config, opt, manual = NULL, ...) {
   return(params)
 }
 
-getInitParams <- function(config, params, param_fixed_names, use_case_incid, npar) {
-  
+getParamBounds <- function(config, params, param_fixed_names, use_case_incid) {
   # lower bound for positive parameter values
   min_param_val <- 1e-5
   
@@ -248,17 +247,53 @@ getInitParams <- function(config, params, param_fixed_names, use_case_incid, npa
   # convert to matrix for ease
   parameter_bounds <- set_rownames(as.matrix(parameter_bounds[, -1]), parameter_bounds[["param"]])
   
-  # create random vectors of initial parameters given the bounds
-  init_params <- sobolDesign(
-    lower = parameter_bounds[, "lower"],
-    upper = parameter_bounds[, "upper"],
-    nseq = npar
-  )
+  return(parameter_bounds)
+}
+
+getInitParams <- function(config, params, param_fixed_names, use_case_incid, npar, profile = F, pars_to_profile = NULL) {
+  #' @title Get initial parameters
+  #' @description Get initial parameters to run MIF
+  #' @param config
+  #' @param params
+  #' @param param_fixed_names
+  #' @param use_case_incid
+  #' @param npar
+  #' @param profile
+  #' @param pars_to_profile
+  #' @return return
+  
+  parameter_bounds <- getParamBounds(config, params, param_fixed_names, use_case_incid)
+  
+  if (profile) {
+    if (is.null(pars_to_profile))
+      stop("Please add parameters to profile")
+    # TODO add check that all paramaters are known
+    parameter_bounds <- parameter_bounds[setdiff(rownames(parameter_bounds), names(pars_to_profile)), ]
+    
+    # create random vectors of initial parameters given the bounds
+    init_params <- do.call(profileDesign,
+                           c(pars_to_profile,
+                             list(lower = parameter_bounds[, "lower"],
+                                  upper = parameter_bounds[, "upper"],
+                                  nprof = npar,
+                                  type = "sobol"))) 
+    
+    npar <- nrow(init_params)
+    free_pars <- c(rownames(parameter_bounds), names(pars_to_profile))
+  } else {
+    # create random vectors of initial parameters given the bounds
+    init_params <- sobolDesign(
+      lower = parameter_bounds[, "lower"],
+      upper = parameter_bounds[, "upper"],
+      nseq = npar
+    )
+    free_pars <- rownames(parameter_bounds)
+  }
   
   # bind with the fixed valued parameters
   init_params <- cbind(
     init_params,
-    matrix(rep(params[!(names(params) %in% rownames(parameter_bounds))], each = npar), 
+    matrix(rep(params[!(names(params) %in% free_pars)], each = npar), 
            nrow = npar) %>%
       set_colnames(param_fixed_names)
   )
@@ -269,15 +304,25 @@ getInitParams <- function(config, params, param_fixed_names, use_case_incid, npa
   return(init_params)
 }
 
-getRWSD <- function(config, rw.sd_param, tvary) {
+getRWSD <- function(config, rw.sd_param, tvary, profile = F, pars_to_profile = NULL) {
   
   if (!is.null(config$parameters_to_fit)) {
     other_rw <- lapply(
       names(config$parameters_to_fit),
-      function(x) glue(", {x} = {rw.sd_param[config$parameters_to_fit[[x]]$rw_sd]}")
+      function(x) { 
+        if (profile) {
+          if (x %in% names(pars_to_profile)) {
+            glue(", {x} = 0")
+          } else {
+            glue(", {x} = {rw.sd_param[config$parameters_to_fit[[x]]$rw_sd]}")
+          }
+        } else {
+          glue(", {x} = {rw.sd_param[config$parameters_to_fit[[x]]$rw_sd]}")
+        }
+      }
     ) %>%
       unlist() %>%
-      str_c(sep = " ")
+      str_c(collapse = " ")
   } else {
     other_rw <- ""
   }
@@ -285,8 +330,6 @@ getRWSD <- function(config, rw.sd_param, tvary) {
   rw_text <- glue("rw.sd(std_X  =ifelse(time>={tvary}, {rw.sd_param['regular']}, {rw.sd_param['regular']/10}) 
                 , k  = {ifelse(use_case_incid, rw.sd_param['regular'], 0)}
                 , epsilon   = {ifelse(use_case_incid, rw.sd_param['regular'], 0)}
-                 , I_0  = ivp({rw.sd_param['ivp']})
-                 , R0_0  = ivp({rw.sd_param['ivp']})
                 {other_rw})")
   
   job_rw.sd <- eval(parse(text = rw_text))

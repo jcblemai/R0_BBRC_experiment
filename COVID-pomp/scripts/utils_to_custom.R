@@ -22,19 +22,6 @@ customIngestData <- function(fdata, params = NULL) {
   #' All columns that are not present will be filled with NAs
   #' @return dataframe with data
   
-  # REPLACE CODE HERE
-  epidata <- read_csv(fdata, col_types = cols()) %>%
-    mutate(
-      case_incid = c(ncumul_conf[1], diff(ncumul_conf)),
-      death_incid = c(ncumul_deceased[1], diff(ncumul_deceased)),
-      hosp_incid = new_hosp,
-      discharge_incid = c(ncumul_released[1], diff(ncumul_released)),
-      icu_curr = current_icu,
-      hosp_curr = current_hosp,
-      cum_deaths = ncumul_deceased,
-      delta_hosp = c(hosp_curr[1], diff(hosp_curr)),
-      delta_icu = c(icu_curr[1], diff(icu_curr))
-    )
   
   if (params$place == "CH") {
     # load national-level estimates from Probst's github
@@ -66,13 +53,26 @@ customIngestData <- function(fdata, params = NULL) {
         hosp_incid = NA,
         delta_ID = NA
       )
-  } else if (params$place == "VD") {
+  } else if (params$place == "Vaud") {
     hosp_data <- read_csv("data/VD_hosp_data.csv") %>%
       select(-hosp_curr)
     # epidata <- select(epidata, one_of(setdiff(colnames(epidata), colnames(hosp_data)[-1]))) %>%
     #   left_join(hosp_data)
+  } else {
+    # REPLACE CODE HERE
+    epidata <- read_csv(fdata, col_types = cols()) %>%
+      mutate(
+        case_incid = c(ncumul_conf[1], diff(ncumul_conf)),
+        death_incid = c(ncumul_deceased[1], diff(ncumul_deceased)),
+        hosp_incid = new_hosp,
+        discharge_incid = c(ncumul_released[1], diff(ncumul_released)),
+        icu_curr = current_icu,
+        hosp_curr = current_hosp,
+        cum_deaths = ncumul_deceased,
+        delta_hosp = c(hosp_curr[1], diff(hosp_curr)),
+        delta_icu = c(icu_curr[1], diff(icu_curr))
+      )
   }
-  
   return(epidata)
 }
 
