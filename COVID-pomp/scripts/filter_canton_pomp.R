@@ -23,7 +23,7 @@ option_list = list(
   make_option(c("-b", "--basepath"), default="COVID-pomp/", type='character', help="base path"),
   make_option(c("-j", "--jobs"), default=detectCores(), type='numeric', help="number of cores used"),
   make_option(c("-o", "--cores"), default=detectCores(), type='numeric', help="number of cores used"),
-  make_option(c("-r", "--run_level"), default = 1, type = "numeric", help = "run level for MIF"),
+  make_option(c("-r", "--run_level"), default = 3, type = "numeric", help = "run level for MIF"),
   make_option(c("-n", "--nfilter"), default=10, type='numeric', help="Number of filtering iterations"),
   make_option(c("-l", "--likelihood"), default='d-deltah', type='character', help="likelihood to be used for filtering"),
   make_option(c("-s", "--suffix"), default = "", type = "character", help = "custom suffix to add")
@@ -74,7 +74,7 @@ registerDoSNOW(cl)
 best_params <- liks %>%
   arrange(desc(loglik)) %>% 
   select(-contains("log")) %>%
-  slice(1:2)
+  slice(1:6)
 
 t3 <- system.time({
   filter_dists <- foreach(pari = iter(best_params, "row"),
