@@ -9,7 +9,7 @@ data_ch <- list.files("data/ch/cases/covid_19/fallzahlen_kanton_total_csv_v2/", 
   summarise_all(sum, na.rm = T) %>% 
   arrange(date) %>% 
   mutate(deaths = c(ncumul_deceased[1], diff(ncumul_deceased))) %>% 
-  filter(date < "2020-04-10")
+  filter(date < "2020-04-14")
 
 write_csv(data_ch, path = "data/ch/cases/covid_19/fallzahlen_kanton_total_csv_v2/COVID19_Fallzahlen_Kanton_CH_total.csv")
 write_csv(data_ch, path = "~/Desktop/openzh_CH_aggregate.csv")

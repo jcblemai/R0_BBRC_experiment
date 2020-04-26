@@ -101,19 +101,19 @@ We compared `r nscenarios` intervention scenarios for model simulations from `r 
 We consider three planning scenarios:
 
 - **Current Measures Stopped May 1st**, which assumes measures instituted in Switzerland:
-+ School closure on March 14,
-+ Physical distancing measures progressively established from March 14 to March 20. 
+  - School closure on March 14,
+  - Physical distancing measures progressively established from March 14 to March 20. 
 
-are held up until May 1st. We fitted the impact of these moderately restrictive non-pharmaceutical interventions (NPIs) on cases, hospitalizations and deaths per canton (see Inference tab above). For May 1 on, we assume a return to baseline, early epidemic level transmissibility for the foreseeable future.
+are held up until May 1st. We inferred the impact of these moderately restrictive non-pharmaceutical interventions (NPIs) in Switzerland using data on hospitalizations and deaths (see Inference tab above). For May 1st on, we assume a return to baseline, early epidemic level transmissibility for the foreseeable future.
 
-- **R0 around 1.2**, which assumes that current measures are replaced from May 1 on by a combination of measures that keeps the $R_0$ around 1.2
+- **R0 around 1.2**, which assumes that current measures are replaced from May 1st on by a combination of measures that keeps the $R_0$ around 1.2
 
-- **R0 around 0.9**, which assumes that current measures are replaced from May 1 on by a combination of measures that keeps the $R_0$ around 0.9.
+- **R0 around 1.5**, which assumes that current measures are replaced from May 1st on by a combination of measures that keeps the $R_0$ around 1.5.
 
 
 
 ```{r rmd_formatting}
-scen_desc_str <- "three scenarios with current measures until May 1st followed by 1) a return to baseline transmissiblity, 2) measures that keeps R0 around 1.2 and 3) measures that keeps R0 around 0.9."
+scen_desc_str <- "three scenarios with current measures until May 1st followed by 1) a return to baseline transmissiblity, 2) measures that keeps R0 around 1.2 and 3) measures that keeps R0 around 1.5"
 fig_counter <- 1
 tab_counter <- 1
 ```
