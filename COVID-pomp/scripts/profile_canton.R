@@ -67,6 +67,7 @@ suffix <- buildSuffix(
 )
 
 suffix_prof <- str_c(suffix, str_c("_prof-", opt$to_profile, collapse = "-"))
+mif_prof_filename <- glue("{opt$b}results/profiling_mif_{suffix_prof}.csv")
 ll_prof_filename <- glue("{opt$b}results/profiling_loglik_{suffix_prof}.csv")
 
 # Initial parameters -----------------------------------------------------------
@@ -116,7 +117,7 @@ t1 <- system.time({
                        verbose = F)
                 }})
 
-save(t1, mf, file = mif_filename)
+save(t1, mf, file = mif_prof_filename)
 
 cat("----- Done MIF, took", round(t1["elapsed"]/60), "mins \n")
 
