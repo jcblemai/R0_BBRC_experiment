@@ -74,7 +74,7 @@ registerDoSNOW(cl)
 best_params <- liks %>%
   arrange(desc(loglik)) %>% 
   select(-contains("log")) %>%
-  slice(1:3)
+  slice(1)
 
 t3 <- system.time({
   filter_dists <- foreach(pari = iter(best_params, "row"),
@@ -144,10 +144,50 @@ comp_dict <- c(a_I = "case_incid",
 
 # Load epidata
 epidata <- read_csv(glue("{opt$b}interm/data_{suffix}.csv"))%>%
-  rename(!!comp_dict) 
-epidata4plot <- epidata %>% 
-  select(-date)  %>% 
+  rename(!!comp_dict) %>% 
+  select(-date)
+epidata4plot <- epidata  %>% 
   gather(var, value, -time) 
+
+epidata2 <- read_csv("data/VD_hosp_data.csv") %>% select(date, contains("incid"), contains("curr"))
+epidata4plot2 <- epidata2 %>%
+  mutate(time = dateToYears(date)) %>% 
+  select(-date) %>% 
+  rename(a_H = hosp_incid,
+         a_U = icu_incid,
+         a_DH = deaths_noicu_incid,
+         a_DU = deaths_icu_incid,
+         a_O = r_incid,
+         H_curr = hosp_curr,
+         U_curr = icu_curr) %>% 
+  gather(var, value, -time) 
+
+
+epidata3 <- read_csv("data/vd/current_hosp_official.csv") 
+epidata4plot3 <- epidata3 %>%
+  mutate(time = dateToYears(as.Date(date, "%m/%d/%Y"))) %>% 
+  select(time, hosp_curr, icu_curr, deaths) %>% 
+  arrange(time) %>% 
+  mutate(a_deltaH = c(hosp_curr[1], diff(hosp_curr))) %>% 
+  rename(H_curr = hosp_curr,
+         U_curr = icu_curr,
+         D = deaths) %>% 
+  gather(var, value, -time) 
+
+
+epidata4 <- read_csv("data/vd/current_hosp_VD_2.csv") %>%
+  mutate(time = dateToYears(date)) %>% 
+  select(-date) %>% 
+  arrange(time) %>% 
+  mutate(a_deltaH = c(hosp_curr[1], diff(hosp_curr)),
+         a_deltaH = case_when(a_deltaH< -100 ~ as.numeric(NA), T ~ a_deltaH),
+         a_deltaU = c(icu_curr[1], diff(icu_curr)),
+         a_deltaU = case_when(a_deltaU < -40 ~ as.numeric(NA), T ~ a_deltaU)) %>% 
+  rename(H_curr = hosp_curr,
+         U_curr = icu_curr)
+epidata4plot4 <- epidata4  %>% 
+  gather(var, value, -time) 
+
 if (place == "CH") {
   write_csv(filter_stats, "scenario-pipeline/reports/filter_states.csv")
   write_csv(epidata, "scenario-pipeline/reports/national_epidata.csv")
@@ -163,6 +203,9 @@ p <- ggplot(filter_stats %>%
   geom_ribbon(aes(ymin = q025, ymax = q975, fill = parset), alpha = .2) +
   geom_ribbon(aes(ymin = q25, ymax = q75, fill = parset), alpha = .2) +
   geom_point(data = epidata4plot,  aes(y = value), size = 1) +
+  geom_point(data = epidata4plot2, aes(y = value), col = "blue", size = 1) +
+  geom_point(data = epidata4plot3, aes(y = value), col = "red", size = 1) +
+  geom_point(data = epidata4plot4, aes(y = value), col = "green", size = 1) +
   facet_wrap(~var, scales = "free")  +
   theme_bw() +
   scale_x_continuous(labels = yearsToDateLabel)
