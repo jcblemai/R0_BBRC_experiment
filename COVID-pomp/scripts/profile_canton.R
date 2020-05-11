@@ -67,7 +67,7 @@ suffix <- buildSuffix(
 )
 
 suffix_prof <- str_c(suffix, str_c("_prof-", opt$to_profile, collapse = "-"))
-mif_prof_filename <- glue("{opt$b}results/profiling_mif_{suffix_prof}.csv")
+mif_prof_filename <- glue("{opt$b}results/profiling_mif_{suffix_prof}.rda")
 ll_prof_filename <- glue("{opt$b}results/profiling_loglik_{suffix_prof}.csv")
 
 # Initial parameters -----------------------------------------------------------
@@ -152,15 +152,14 @@ stopCluster(cl)
 
 # Compute profile --------------------------------------------------------------
 source(glue("{opt$b}scripts/mcap.R"))
+ll_prof_filename <- "COVID-pomp/results/profiling_loglik_COVID_CH_CH_d-deltah_R0_0-I_0-id2o_30__prof-R0_0.csv"
 prof_liks <- read_csv(ll_prof_filename) %>% 
   arrange(R0_0) %>% 
   group_by(R0_0) %>% 
   arrange(desc(loglik)) %>% 
-  filter(loglik > -450) %>%
-  slice(1:5)%>%
-  filter(R0_0 > 2 , R0_0 < 4.5)
+  filter(loglik > -480)
 
-R0_mcap <- mcap(prof_liks$loglik, prof_liks$R0_0, lambda = 1)
+R0_mcap <- mcap(prof_liks$loglik, prof_liks$R0_0, lambda = .9)
 
 p <- ggplot(R0_mcap$fit, aes(x = parameter)) +
   geom_line(aes(y = quadratic), color = "blue") +

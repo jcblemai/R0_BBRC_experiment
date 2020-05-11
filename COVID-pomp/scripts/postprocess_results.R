@@ -23,10 +23,10 @@ tw_right <- as.Date(config$timewindow_R0$right)
                    
 # Load results -----------------------------------------------------------------
 
-ffilter <- list.files(path = "COVID-pomp/results/", 
+ffilter <- list.files(path = "COVID-pomp/results/tavary 5mars/results/", 
                       pattern = "filtered_", full.names = TRUE) %>% 
   .[str_detect(., ".rds")] %>% 
-  .[str_detect(., param_suffix)] %>% 
+  # .[str_detect(., param_suffix)] %>% 
   .[str_detect(str_replace_all(., "COVID_CH", ""), str_c(places_to_analyze, collapse = "|"))]
 
 # Get results
@@ -45,8 +45,8 @@ parsets <- tribble(
   "JU", 1,
   "LU", 1,
   "NE", 1, 
-  "TI", 1,
-  "UR", 2,
+  "TI", 2,
+  # "UR", 2,
   "VD", 1,
   "VS", 1,
   "ZH", 1,
@@ -60,7 +60,7 @@ filterstats <- computeFilterStats(sims2) %>%
 r0_reduction <- computeR0Reduction(filter(sims2, var == "Rt"), 
                                    tw_left = as.Date(c("2020-02-25", "2020-03-03")), 
                                    tw_right = as.Date(c("2020-03-28", "2020-04-02")),
-                                   date_start = as.Date("2020-03-15"))
+                                   date_start = as.Date("2020-03-05"))
 
 saveRDS(filterstats, file = "COVID-pomp/results/filtered_states_all.rds")
 saveRDS(r0_reduction, file = "COVID-pomp/results/R0_reduction.rds")

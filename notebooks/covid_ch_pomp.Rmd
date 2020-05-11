@@ -84,6 +84,8 @@ plot_states(filterstats, "Rt", cantons = cantons_to_analyze, fancol = 4, ylabel 
 r0_reduction <- readRDS("../COVID-pomp/results/R0_reduction.rds") %>%
   filter(ShortName %in% config$places)
 
+r0_reduction %>% 
+  filter(var == "r0change") %>% .[["median"]]
 
 r0_reduction %>% 
   filter(var == "r0change") %>% 
@@ -99,6 +101,9 @@ r0_reduction %>%
 ```
 
 ```{r timeto1, fig.cap="**Figure 3. Time to $R_0 < 1$**. Legend as in Figure 2.", fig.width=5, fig.height=4}
+
+date_start = as.Date("2020-03-05")
+
 r0_reduction %>% 
   filter(var == "t1") %>% 
   inner_join(r0_reduction %>% 
@@ -111,7 +116,7 @@ r0_reduction %>%
   geom_errorbar(aes(ymin = q25 , ymax = q75), size = 1.5, width  = 0) +
   geom_errorbar(aes(ymin = q025 , ymax = q975), width  = 0) + 
   coord_flip() +
-  scale_y_continuous(breaks = seq(2, 12, by = 2), labels = format(as.Date("2020-03-15")  + seq(2, 12, by = 2), "%B %d")) +
+  scale_y_continuous(breaks = seq(2, 12, by = 2), labels = format(date_start  + seq(2, 12, by = 2), "%B %d")) +
   labs(y = bquote('Date at which '*R[0]*' went bellow 1'), x = "canton") +
   theme_bw()
 ```
@@ -197,7 +202,7 @@ covar_sign %>%
 
 ### Model fit to data
 ```{r fits, fig.cap="**Figure 2. Model fit to data**. Note that the discrepancy betwen the reported and simulated number of infections is due to under-reporting, which we estimate as part of the modelling procedure.", fig.width=10, fig.height=6}
-states_to_plot <- c("tot_I", "D", "H_curr", "U_curr")
+states_to_plot <- c("a_D", "H_curr", "U_curr")
 plot_cnt_all(filterstats = filterstats, data = data, states_to_plot =  states_to_plot, cantons_to_analyze, ylabel = " ")
 ```
 

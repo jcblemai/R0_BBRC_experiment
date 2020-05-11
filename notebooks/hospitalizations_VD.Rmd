@@ -203,7 +203,7 @@ Since the begging of the first COVID case in Vaud, a total of `r nrow(hosp_data)
 #   ggplot(aes(x = date, y = value, color = location, lyt = type)) +
 #   geom_line() +
 #   facet_wrap(type~var, scales = "free_y", ncol = 2, labeller = labeller(var = incid_dict)) +
-#   theme_minimal() +
+#   theme_bw() +
 #   labs(x = "", y = "") +
 #  scale_color_manual(values = c("#00688B", "#EE2C2C"))
 
@@ -228,7 +228,7 @@ ggplot(cfr %>% filter(mle<1), aes(x = date)) +
   geom_line(aes(y = cfr * 100), lty = 2) +
   geom_point(aes(y = mle * 100)) +
   geom_errorbar(aes(ymin = q025 * 100, ymax = q975 * 100), width = 0) +
-  theme_minimal() +
+  theme_bw() +
   labs(x = "", y = "CFR [%]") +
   ylim(c(0, max(cfr$cfr)))
 ```
@@ -240,15 +240,18 @@ ggplot(cfr %>% filter(mle<1), aes(x = date)) +
 We implement the same methodology to compute the hospitalized CFRs from the CHUV data, assuming a log-normal distribution of time from hospitalization to death.
 
 ```{r, fig.height=3, fig.width=7}
-ggplot(hcfr %>% 
+phcfr <- ggplot(hcfr %>% 
          filter(mle<1, mle >0)%>% 
          mutate(alpha = case_when(mle == 0 | mle == 1 ~ 0 , T ~ 1)), 
        aes(x = date)) +
   # geom_line(aes(y = cfr* 100), lty = 2) +
   geom_point(aes(y = mle * 100, alpha = I(alpha))) +
   geom_errorbar(aes(ymin = q025 * 100, ymax = q975 * 100, alpha = I(alpha)), width = 0) +
-  theme_minimal() +
+  theme_bw() +
   labs(x = "", y = "Hospitalized CFR [%]")
+
+ggsave(phcfr, filename = "../COVID-pomp/results/figs/VD_hcfr.png", width = 5.5, height = 3.5)
+phcfr
 ```
 
 **Figure. Hospitalized CFRs based on CHUV data.**
@@ -262,17 +265,20 @@ hosp_data %>%
          outcome = factor(outcome, levels = c("other", "deceased"))) %>% 
   ggplot(aes(x = age, fill = outcome)) +
   geom_histogram() +
-  theme_minimal() +
+  theme_bw() +
   ggthemes::scale_fill_few()
 
-hosp_data %>% 
+p_age <- hosp_data %>% 
   mutate(outcome = case_when(outcome == "deceased" ~ outcome, T ~ "other"),
-         outcome = factor(outcome, levels = c("other", "deceased"))) %>% 
+         outcome = factor(outcome, levels = c("other", "deceased")),
+         icu = case_when(!is.na(icu_in) ~ "ICU", T ~ "no ICU" )) %>% 
   ggplot(aes(x = age, fill = outcome)) +
   geom_histogram() +
-  theme_minimal() +
+  theme_bw() +
   ggthemes::scale_fill_few() +
-  facet_wrap(~is.na(icu_in))
+  facet_wrap(~icu)
+
+ggsave(p_age, filename = "../COVID-pomp/results/figs/VD_hist_age.png", width = 6.5, height = 2.5)
 ```
 
 **Figure. Distribution of ages of hospitalized patients**
@@ -287,7 +293,7 @@ hosp_data %>%
                                 T ~ "discharged or deceased")) %>% 
   ggplot(aes(x = time_hosp, fill = hosp_state)) +
   geom_histogram(position = "dodge") +
-  theme_minimal() +
+  theme_bw() +
   ggthemes::scale_fill_few() +
   labs(x = "Time hospitalized [days]")
 
@@ -324,21 +330,22 @@ ticu2r_dens <- generateDenstiy(ticu2r_dist)
 
 ```{r data histograms, fig.width=8, fig.height=6, fig.cap="**Figure A.2. Time distributions of modelled hospitalization processes.** Bars represent data from alll VD hospitals and lines estimated probability distribution functions as used in the model."}
 # Colors
-th_cols <- c("#9BB9FA", "#F09C9C")
+th_cols <- c("#6A6AFC", "#FF9514")
 x_lims <- c(0.5, 30)
 
 # Time hospitalzed
 p_th <- hosp_data %>% 
   mutate(hosp_state = case_when(outcome == "hospitalized" ~ outcome,
                                 T ~ "discharged or deceased"),
-         icu = !is.na(icu_in)) %>% 
+         icu = case_when(!is.na(icu_in) ~ "ICU", T ~ "no ICU")) %>% 
   ggplot() +
   geom_histogram(aes(x = time_hosp, fill = hosp_state), position = "dodge") +
-  geom_line(data = th_dens, aes(x = x, y = y)) +
-  theme_minimal() +
+  # geom_line(data = th_dens, aes(x = x, y = y)) +
+  theme_bw() +
   scale_fill_manual(values = th_cols) +
+  guides(fill = guide_legend(title = "outcome"))+
   labs(x = "Time hospitalized [days]") +
-  theme(legend.position = c(0.75, 0.7),
+  theme(legend.position = c(0.2, 0.7),
         legend.key.size = unit(.5, "cm")) +
   xlim(x_lims) +
   facet_wrap(~icu)
@@ -347,9 +354,9 @@ p_th <- hosp_data %>%
 # Time to recovery
 p_th2r <- filter(hosp_data, outcome == "discharged", is.na(icu_in)) %>% 
   ggplot() +
-  geom_histogram(aes(x = time_hosp, y = ..density..), fill = "gray") +
-  geom_line(data = th2r_dens, aes(x = x, y = y)) +
-  theme_minimal() + 
+  geom_histogram(aes(x = time_hosp, y = ..count..), fill = "gray") +
+  # geom_line(data = th2r_dens, aes(x = x, y = y)) +
+  theme_bw() + 
   labs(x = "Time fom hospitalization to discharge no ICU [days]") +
   xlim(x_lims)
 
@@ -359,7 +366,7 @@ p_thiuc2r <- filter(hosp_data, outcome != "deceased", !is.na(icu_in)) %>%
   ggplot() +
   geom_histogram(aes(x = time_icu), fill = "gray") +
   # geom_line(data = ticu2r_dens, aes(x = x, y = y)) +
-  theme_minimal() + 
+  theme_bw() + 
   labs(x = "Time fom hospitalization to discharge through ICU [days]") +
   xlim(x_lims) +
   facet_wrap(~outcome)
@@ -367,24 +374,26 @@ p_thiuc2r <- filter(hosp_data, outcome != "deceased", !is.na(icu_in)) %>%
 # Time to ICU
 p_t2icu <- hosp_data %>% 
   ggplot() +
-  geom_histogram(aes(x = time_to_icu, y = ..density..), fill = "gray") +
-  geom_line(data = t2icu_dens, aes(x = x, y = y)) +
-  theme_minimal() + 
+  geom_histogram(aes(x = time_to_icu, y = ..count..), fill = "gray") +
+  # geom_line(data = t2icu_dens, aes(x = x, y = y)) +
+  theme_bw() + 
   labs(x = "Time from hospitalization to ICU [days]") +
   xlim(x_lims)
 
 # Time in ICU
 p_tiuc <- hosp_data %>% 
   filter(icu_state != "") %>% 
+  mutate(icu_state = case_when(icu_state == "discharged from ICU" ~ "discharged or deceased", T ~ "in ICU")) %>% 
   mutate(agec = case_when(age > 65 ~ "+65", T~ "18-65")) %>% 
   ggplot() +
-  geom_histogram(aes(x = time_icu, y = ..density.., fill = icu_state), position = "dodge") +
-  geom_line(data = ticu2d_dens, aes(x = x, y = y)) +
-  theme_minimal() +
+  geom_histogram(aes(x = time_icu, y = ..count.., fill = icu_state), position = "dodge") +
+  # geom_line(data = ticu2d_dens, aes(x = x, y = y)) +
+  theme_bw() +
   scale_fill_manual(values = th_cols) +
+  guides(fill = guide_legend(title = "ICU outcome")) +
   # facet_wrap(~agec) +
   labs(x = "Time in ICU [days]") +
-  theme(legend.position = c(0.75, 0.7),
+  theme(legend.position = c(0.65, 0.7),
         legend.key.size = unit(.5, "cm")) +
   xlim(x_lims)
 
@@ -393,20 +402,19 @@ p_tiuc <- hosp_data %>%
 p_t2d <- hosp_data %>%
   filter(deceased) %>% 
   ggplot() +
-  geom_histogram(aes(x = time_to_death, y = ..density..), fill = "gray") +
-  geom_line(data = th2d_dens, aes(x = x, y = y)) +
-  theme_minimal() +
+  geom_histogram(aes(x = time_to_death, y = ..count..), fill = "gray") +
+  # geom_line(data = th2d_dens, aes(x = x, y = y)) +
+  theme_bw() +
   labs(x = "Time from hospitalization to death [days]") +
   xlim(x_lims)
-
 
 # Time to death
 p_ticu2d <- hosp_data %>%
   filter(deceased) %>% 
   ggplot() +
-  geom_histogram(aes(x = time_icu_to_death, y = ..density..), fill = "gray") +
-  geom_line(data = ticu2d_dens, aes(x = x, y = y)) +
-  theme_minimal() +
+  geom_histogram(aes(x = time_icu_to_death, y = ..count..), fill = "gray") +
+  # geom_line(data = ticu2d_dens, aes(x = x, y = y)) +
+  theme_bw() +
   labs(x = "Time from ICU to death [days]") +
   xlim(x_lims)
 
@@ -414,14 +422,23 @@ p_ticu2d <- hosp_data %>%
 p_tnoicu2d <- hosp_data %>%
   filter(deceased, is.na(icu_in)) %>% 
   ggplot() +
-  geom_histogram(aes(x = time_to_death, y = ..density..), fill = "gray") +
-  geom_line(data = tnoicu2d_dens, aes(x = x, y = y)) +
-  theme_minimal() +
+  geom_histogram(aes(x = time_to_death, y = ..count..), fill = "gray") +
+  # geom_line(data = tnoicu2d_dens, aes(x = x, y = y)) +
+  theme_bw() +
   labs(x = "Time from hospitalization to death without ICU [days]") +
   xlim(x_lims)
 
 
-grid.arrange(p_th, p_t2icu, p_tiuc, p_t2d, p_th2r, p_ticu2d, p_tnoicu2d, ncol=2)
+p_times <- arrangeGrob(p_th, p_t2d, p_th2r, p_tnoicu2d, p_t2icu, p_tiuc, p_ticu2d, 
+                       layout_matrix = rbind(c(1, 1),
+                                             c(2, 3),
+                                             c(4, 5),
+                                             c(6, 7)))
+
+ggsave(p_times, filename = "../COVID-pomp/results/figs/VD_times.png", width = 8, height = 10)
+
+
+
 ```
 
 ```{r dist params}
@@ -429,14 +446,15 @@ grid.arrange(p_th, p_t2icu, p_tiuc, p_t2d, p_th2r, p_ticu2d, p_tnoicu2d, ncol=2)
 dist_params <- tribble(
   ~var, ~dist,
   "Time hospitalized", list(th_dist),
-  "Time to discharge no ICU", list(th2r_dist),
-  "Time hospitalized no ICU", list(tnoicuh_dist),
+  "Time to discharge without ICU", list(th2r_dist),
+  "Time hospitalized without ICU", list(tnoicuh_dist),
+  "Time to death without ICU", list(tnoicu2d_dist),
   "Time hospitalized with ICU", list(ticuh_dist),
-  "Time from hospitalization to ICU", list(t2icu_dist),
+  "Time to death", list(th2d_dist),
+  "Time to ICU", list(t2icu_dist),
   "Time in ICU", list(ticu_dist),
-  "Time from hospitalization to death", list(th2d_dist),
-  "Time from ICU to death",  list(ticu2d_dist),
-  "Time from hospitalization to death without ICU", list(tnoicu2d_dist)
+  "Time from ICU to discharge", list(ticu2r_dist),
+  "Time from ICU to death",  list(ticu2d_dist)
 ) %>% 
   mutate(
     mean = map_dbl(dist, ~mean(.[[1]]$data)),
@@ -454,6 +472,14 @@ kable(dist_params,
       col.names = c("", "mean", "sd", "mean (logscale)", "sd (logscale)")) %>% 
   kable_styling(latex_options = c("striped", "hold_position"),
                 full_width = F)
+
+kable(dist_params,
+      booktabs = T,
+      digits = 2,
+      format = "latex",
+      caption = "Table A.1. Estimated parameters of key hospitalization time distributions",
+      col.names = c("", "mean", "sd", "mean (logscale)", "sd (logscale)")) %>% 
+  write("../COVID-pomp/results/vd_params_table.tex")
 
 ```
 ```{r survival}
