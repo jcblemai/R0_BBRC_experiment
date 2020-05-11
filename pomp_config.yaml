@@ -1,8 +1,8 @@
 name: COVID_CH
 setup: data/ch/geodata.csv
-parameters: data/parameters_v2.yaml
+parameters: data/parameters_v3.yaml
 data_path: data/ch/cases/covid_19/fallzahlen_kanton_total_csv_v2
-model: pomp_skeleton_v3.R
+model: pomp_skeleton_v4.R
 timewindow_R0:
   left: ["2020-03-01", "2020-03-10"]
   right: ["2020-03-29", "2020-04-05"]
@@ -25,8 +25,8 @@ parameters_to_fit:
     transform: logit
     rw_sd: ivp
   id2o:
-    upper: 36.5
-    lower: 18
+    upper: 10
+    lower: 5
     transform: log
     rw_sd: regular
 profile_bounds:
