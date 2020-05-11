@@ -24,7 +24,7 @@ option_list <- list(
   make_option(c("-r", "--run_level"), default = 1, type = "numeric", help = "run level for MIF"),
   make_option(c("-p", "--place"), default = "CH", type = "character", help = "name of place to be run, a place abbrv. in CH"),
   make_option(c("-l", "--likelihood"), default = "d-deltah", type = "character", help = "likelihood to be used for filtering"),
-  make_option(c("-s", "--suffix"), default = "", type = "character", help = "custom suffix to add")
+  make_option(c("-s", "--suffix"), default = NULL, type = "character", help = "custom suffix to add")
   )
 
 opt <- parse_args(OptionParser(option_list = option_list))
@@ -42,8 +42,8 @@ if (opt$a == 1 & Sys.getenv("SLURM_ARRAY_TASK_ID") != "") {
 
 # Level of detail on which to run the computations
 run_level <- opt$run_level
-sir_Np <- c(1e2, 3e3, 5e3)
-sir_Nmif <- c(2, 20, 150)
+sir_Np <- c(1e2, 3e3, 3e3)
+sir_Nmif <- c(2, 20, 100)
 sir_Ninit_param <- c(2, opt$jobs, opt$jobs)
 sir_NpLL <- c(1e2, 1e4, 1e4)
 sir_Nreps_global <- c(2, 5, 20)
@@ -110,10 +110,8 @@ for (par in seq_along(config$parameters_to_fit)) {
 # Time before which we constrain R0
 tvary <- dateToYears(as.Date(config$tvary))
 # Hospitalized CFR
-hcfr <- (1 - params["pi2hs"]) * (params["ph2u"] * params["pu2d"] + 1 - params["ph2u"])
 sdfrac <- config$sdfrac
 globals <-  glue("double tvary = {tvary}; 
-                 double hcfr = {hcfr}; 
                  double sdfrac = {sdfrac};")
 covid <- pomp(
   data = select(epidata, -date),  # set data

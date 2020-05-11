@@ -6,7 +6,60 @@ library(magrittr)
 library(foreach)
 library(iterators)
 source("COVID-pomp/scripts/utils.R")
+# Crude estimates (biased)
+computeCFRBiased <- function(cumul_cases, cumul_deaths, n_lag) {
+  cumul_deaths/lag(cumul_cases, n_lag)
+}
+convolveManual <- function(x, y) {
+  res <- rep(0, length(x))
+  for (i in 1:length(x)) {
+    for (j in 1:i) {
+      res[i] <- res[i] + x[j] * y[min(c(i - j + 1, length(y)))]
+    }
+  }
+  res
+}
 
+# Adjusted estimates following Nishiura et al. 2009
+computeU <- function(C_t, f_t2d) {
+  n_elem_C <- length(C_t)
+  convolveManual(C_t, f_t2d)/C_t
+}
+
+profileLik <- function(ps, uC, D) {
+  liks <- lapply(ps, function(p) {
+    dbinom(D, ceiling(uC), p, log = T)
+  }) %>% 
+    unlist()
+  
+  rliks <- 2 * (max(liks) - liks)
+  chilim <- qchisq(0.95, 1)
+  lb <- which(rliks < chilim)[1]
+  mle_i <- which.max(liks)[1]
+  ub <- which(rliks[mle_i:length(ps)] > chilim)[1] + mle_i - 1
+  q025 <- ps[lb]
+  q975 <- ps[ub]
+  data.frame(mle = ps[mle_i], q025 = q025, q975 = q975)
+}
+computeCCFR <- function(t2d, C_t, D_t, dates, distr) {
+  
+  f_t2d_params <- fitdistrplus::fitdist(t2d, distr = distr)$estimate
+  if (distr == "lnorm") {
+    f_t2d <- dlnorm(seq(1, 40), f_t2d_params[1], f_t2d_params[2])
+  } else {
+    f_t2d <- dgamma(seq(1, 40), f_t2d_params[1], f_t2d_params[2])
+  }
+  
+  # As defined in Nishiura et al. 2009
+  u_t <- computeU(C_t, f_t2d)
+  uC_t <- u_t * C_t
+  ps <- seq(0, 1, by = 1e-2)
+  ccfrs <- do.call(
+    rbind, 
+    lapply(1:length(u_t), function(i) {profileLik(ps, uC_t[i], D_t[i])})) %>% 
+    mutate(date = dates)
+  return(ccfrs)
+}
 select <- dplyr::select
 # Load hospitalization data ----------------------------------------------------
 # Date to replace on the right bound
@@ -66,6 +119,36 @@ hosp_cumul %>%
   geom_line() #+
 facet_wrap(~ var, scales = "free_y")
 
+# Compute ICU stays by hand
+icu_data <- hosp_data %>% 
+  filter(!is.na(icu_in)) %>% 
+  arrange(date_in)
+
+date_range <- seq.Date(min(hosp_data$date_in), max(hosp_data$date_out), by = "1 days")
+
+icu_out <- tibble(date = date_range,
+                   a_OU = map_dbl(
+                     date_range,
+                     ~sum(icu_data$icu_out == . & !(icu_data$deceased | icu_data$icu_out == right_date)))) 
+
+icu_curr <- tibble(date = date_range,
+                   icu_in = map_dbl(date_range, ~sum(icu_data$icu_in == .)),
+                   icu_out = map_dbl(date_range, ~sum(icu_data$icu_out == .))) %>% 
+  mutate(cum_in = cumsum(icu_in),
+         cum_out = cumsum(icu_out),
+         icu_curr = cum_in - cum_out)
+
+hosp_curr <-  tibble(date = date_range,
+                     hop_in = map_dbl(date_range, ~sum(hosp_data$date_in == .)),
+                     hosp_out = map_dbl(date_range, ~sum(hosp_data$date_out == .))) %>% 
+  mutate(cum_in = cumsum(hop_in),
+         cum_out = cumsum(hosp_out),
+         hosp_curr = cum_in - cum_out)
+
+inner_join(icu_curr, hosp_curr, by = "date") %>% 
+  inner_join(icu_out, by = "date") %>% 
+  select(date, icu_curr, hosp_curr, a_OU) %>% 
+  write_csv("data/vd/current_hosp_VD_2.csv")
 # Times ------------------------------------------------------------------------
 
 obs_times <- list(
@@ -114,7 +197,7 @@ hcfr2 <- (1- pi2hs) * (ph2u * pu2d + 1 - ph2u)
 # IFR and prob of hospitaliztion
 
 computePHosp <- function(x, pi2d, hfcr) {
-x*pi2d/(1-x)/(hcfr + x*pi2d/(1-x))
+  x*pi2d/(1-x)/(hcfr + x*pi2d/(1-x))
 }
 
 toOptPI2D <- function(pi2d, ifr, psevere, x, hcfr) {
@@ -153,26 +236,28 @@ data <- with(filter(hosp_data,
                   y = time_icu,
                   C_prior = rep(1/8, 8)
                   # C_prior = c(.25, .25, .15, .1, .1, .05, .05, .05)
-                  ))
+             ))
 
 datah <- with(filter(hosp_data, 
-                    outcome != "deceased", 
-                    is.na(icu_in), 
-                    # is.na(outcome_ori) | outcome_ori != "transfert",
-                    time_hosp > 0),
-             list(N = length(time_hosp),
-                  C = 8,
-                  y = time_hosp,
-                  C_prior = rep(1/8, 8)
-             ))
+                     outcome != "deceased", 
+                     is.na(icu_in), 
+                     # is.na(outcome_ori) | outcome_ori != "transfert",
+                     time_hosp > 0),
+              list(N = length(time_hosp),
+                   C = 8,
+                   y = time_hosp,
+                   C_prior = rep(1/8, 8)
+              ))
 
 
 # Fit the model
 control <- list(adapt_delta = .9, metric = "dense_e", max_treedepth = 12)
 nwarmup <- 4000
 niter <- nwarmup + 1000
+
+
 singleerlang_stanfit <- sampling(mixture_erland_stan,
-                                 data = append(datah, list(K = 1, mu_scale = c(4, 0))),
+                                 data = append(data, list(K = 1, mu_scale = c(4, 0))),
                                  chains = n_chains,
                                  warmup = nwarmup, iter = niter,
                                  control = control,
@@ -187,58 +272,81 @@ mixerlang_stanfit <- sampling(mixture_erland_stan,
 
 loo_2k <- loo::loo(mixerlang_stanfit)
 loo_1k <- loo::loo(singleerlang_stanfit)
-
 loo::loo_compare(loo_1k, loo_2k)
 
-a <- summary(mixerlang_stanfit, pars = "lp")$summary 
-a %>% as_tibble()  %>% 
-  mutate(param = rownames(a),
-         obid  = as.numeric(str_extract(param, "(?<=\\[)[0-9]+(?=,)")),
-         grp = as.numeric(str_extract(param, "(?<=,)[0-9]+(?=,)")),
-         num_comp = as.numeric(str_extract(param, "(?<=,)[0-9]+(?=\\])"))) %>% 
-  group_by(num_comp, grp) %>% 
-  summarise(ll = sum(mean)) %>% 
-  ggplot(aes(x = num_comp, y = ll, color = factor(grp))) +
-  geom_line() +
-  facet_wrap(~grp, scales ="free_y")
-
-comp_summary <- summary(mixerlang_stanfit, pars = "ll_c")$summary 
-comp_post <-comp_summary %>% as_tibble() %>% 
-  mutate(param = rownames(comp_summary),
-         grp  = as.numeric(str_extract(param, "(?<=\\[)[0-9]+(?=,)")),
-         num_comp = as.numeric(str_extract(param, "(?<=,)[0-9]+(?=\\])")))
-
-comp_post %>% select(mean, num_comp, grp) %>% 
-  gather(var, value, -grp, -num_comp) %>% 
-  ggplot(aes(x = num_comp, y = value, fill = factor(grp))) +
-  geom_bar(position = "dodge", stat = "identity")
-
-k_summary <- summary(mixerlang_stanfit, pars = "ll_k")$summary
-group_post <- k_summary %>%
-  as_tibble() %>%
-  mutate(param = rownames(k_summary),
-         obsid = as.numeric(str_extract(param, "(?<=\\[)[0-9]+(?=,)")),
-         grp = str_extract(param, "(?<=,)[0-9]+(?=\\])")) %>% 
-  group_by(obsid) %>%
-  summarise(est_grp = grp[which.max(mean)],
-            lambda = mean[grp=="1"]) 
 
 
-icu_data <- filter(hosp_data, 
-                   outcome != "deceased", 
-                   !is.na(icu_in), 
-                   # is.na(outcome_ori) | outcome_ori != "transfert",
-                   time_icu > 0) %>% 
-  cbind(group_post)
+singleerlang_stanfith <- sampling(mixture_erland_stan,
+                                  data = append(datah, list(K = 1, mu_scale = c(4, 0))),
+                                  chains = n_chains,
+                                  warmup = nwarmup, iter = niter,
+                                  control = control,
+                                  save_warmup = FALSE)
 
-ggplot(icu_data, aes(x=time_icu, y = 1, fill = lambda)) + 
-  geom_bar(stat = "identity")  +
-  scale_fill_gradient2(midpoint = .5)
+mixerlang_stanfith <- sampling(mixture_erland_stan,
+                               data = append(datah, list(K = 2, mu_scale = c(2, 10))),
+                               chains = n_chains,
+                               warmup = nwarmup, iter = niter,
+                               control = control,
+                               save_warmup = FALSE)
 
+loo_2kh <- loo::loo(mixerlang_stanfith)
+loo_1kh <- loo::loo(singleerlang_stanfith)
+loo::loo_compare(loo_1kh, loo_2kh)
 
-ggplot(icu_data, aes(x = lambda, fill = sex)) + 
-  geom_histogram() +
-  scale_color_viridis_c()
+summary(mixerlang_stanfit, pars = c("theta", "mu"))$summary
+summary(mixerlang_stanfith, pars = c("theta", "mu"))$summary
+
+# 
+# a <- summary(mixerlang_stanfit, pars = "lp")$summary 
+# a %>% as_tibble()  %>% 
+#   mutate(param = rownames(a),
+#          obid  = as.numeric(str_extract(param, "(?<=\\[)[0-9]+(?=,)")),
+#          grp = as.numeric(str_extract(param, "(?<=,)[0-9]+(?=,)")),
+#          num_comp = as.numeric(str_extract(param, "(?<=,)[0-9]+(?=\\])"))) %>% 
+#   group_by(num_comp, grp) %>% 
+#   summarise(ll = sum(mean)) %>% 
+#   ggplot(aes(x = num_comp, y = ll, color = factor(grp))) +
+#   geom_line() +
+#   facet_wrap(~grp, scales ="free_y")
+# 
+# comp_summary <- summary(mixerlang_stanfit, pars = "ll_c")$summary 
+# comp_post <-comp_summary %>% as_tibble() %>% 
+#   mutate(param = rownames(comp_summary),
+#          grp  = as.numeric(str_extract(param, "(?<=\\[)[0-9]+(?=,)")),
+#          num_comp = as.numeric(str_extract(param, "(?<=,)[0-9]+(?=\\])")))
+# 
+# comp_post %>% select(mean, num_comp, grp) %>% 
+#   gather(var, value, -grp, -num_comp) %>% 
+#   ggplot(aes(x = num_comp, y = value, fill = factor(grp))) +
+#   geom_bar(position = "dodge", stat = "identity")
+# 
+# k_summary <- summary(mixerlang_stanfit, pars = "ll_k")$summary
+# group_post <- k_summary %>%
+#   as_tibble() %>%
+#   mutate(param = rownames(k_summary),
+#          obsid = as.numeric(str_extract(param, "(?<=\\[)[0-9]+(?=,)")),
+#          grp = str_extract(param, "(?<=,)[0-9]+(?=\\])")) %>% 
+#   group_by(obsid) %>%
+#   summarise(est_grp = grp[which.max(mean)],
+#             lambda = mean[grp=="1"]) 
+# 
+# 
+# icu_data <- filter(hosp_data, 
+#                    outcome != "deceased", 
+#                    !is.na(icu_in), 
+#                    # is.na(outcome_ori) | outcome_ori != "transfert",
+#                    time_icu > 0) %>% 
+#   cbind(group_post)
+# 
+# ggplot(icu_data, aes(x=time_icu, y = 1, fill = lambda)) + 
+#   geom_bar(stat = "identity")  +
+#   scale_fill_gradient2(midpoint = .5)
+# 
+# 
+# ggplot(icu_data, aes(x = lambda, fill = sex)) + 
+#   geom_histogram() +
+#   scale_color_viridis_c()
 
 
 
