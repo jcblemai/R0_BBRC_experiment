@@ -24,7 +24,9 @@ extractHospData <- function(df, cols) {
            date_out = as.Date(sortie_hopital_date, format = "%d.%m.%Y"),
            icu_in = as.Date(debut_soins_intensifs_date, format = "%d.%m.%Y"),
            icu_out = as.Date(fin_soins_intensifs_date, format = "%d.%m.%Y"),
-           deceased = str_trim(decede) == "X") 
+           deceased = str_trim(decede) == "X",
+           transfert = `transfert_autre_hopital_nom/localite`
+    )
   
   # df$uid <- with(df, str_c(birthday, premieres_lettres_nom, premieres_lettres_prenom)) %>% 
   # lapply(digest::digest) %>% 
@@ -35,10 +37,10 @@ extractHospData <- function(df, cols) {
 
 # Hospitalizatoin data  ------------------------------------------------------------------------
 
-hfiles <- dir("analysis_CH/docs/VD/", pattern = "*SII", full.names = T)
+hfiles <- dir("docs/VD/", pattern = "*SII", full.names = T)
 hfiles_dates <- str_extract(hfiles, "(?<=_)[0-9]+(?=_|\\.)") %>% as.Date("%Y%m%d")
 
-sel_cols <- c("uid", "age", "date_in", "date_out", "icu_in", "icu_out", "deceased")
+sel_cols <- c("uid", "age", "date_in", "date_out", "icu_in", "icu_out", "deceased", "transfert")
 
 hosp_data <- foreach(hfile = hfiles,
                      hfile_date = hfiles_dates,
@@ -48,14 +50,66 @@ hosp_data <- foreach(hfile = hfiles,
                          str_replace_all("-", "")
                        
                        hosp_in <- readxl::read_excel(hfile, sheet = hdate) %>% 
-                         extractHospData(sel_cols)
-                       
+                         extractHospData(sel_cols) %>% 
+                         mutate(sheet = "in")
                        hosp_out <- readxl::read_excel(hfile, sheet = str_c(hdate, " sortie")) %>%
-                         extractHospData(cols = sel_cols)
+                         extractHospData(cols = sel_cols) %>% 
+                         mutate(sheet = "out")
                        
                        rbind(hosp_in, hosp_out) %>% 
                          mutate(report = hdate)
                      } 
+
+# Remove duplicates
+hosp_data <- distinct(hosp_data) %>% filter(!(icu_in < date_in) | is.na(icu_in))
+hosp_data$deceased[is.na(hosp_data$date_out)] <- NA
+
+# Compute total durations for each patient
+clean_data <- hosp_data %>%
+  filter(!is.na(date_out) | !is.na(icu_in) | !is.na(icu_out)) %>%
+  select(-report) %>%
+  distinct() %>%
+  arrange(uid) %>%
+  group_by(uid, icu_in) %>%
+  
+  # Remove repeated information on ICUS
+  arrange(icu_out) %>% slice(1) %>%
+  ungroup()
+
+clean_data <- clean_data %>%
+  rbind(hosp_data %>%
+          filter(is.na(date_out), is.na(icu_in), !(uid %in% clean_data$uid)) %>%
+          select(-report) %>%
+          distinct())
+
+
+# number of ICU stays
+clean_data %>%
+  filter(!is.na(icu_in)) %>%
+  group_by(uid) %>%
+  summarise(n = n()) %>%
+  arrange(desc(n))
+
+# number of hosp stays
+clean_data %>%
+  distinct(uid, date_in) %>%
+  group_by(uid) %>%
+  summarise(n = n()) %>%
+  arrange(desc(n))
+
+
+# transfers
+clean_data %>%
+  filter(sheet == "out", !is.na(transfert)) %>%
+  distinct(uid, transfert) %>%
+  group_by(transfert) %>%
+  summarise(n = n()) %>%
+  arrange(desc(n))
+
+
+hosp_data %>%
+  group_by(uid) %>%
+  summarise(n= n())
 
 hosp_out <- hosp_data %>% 
   filter(!is.na(uid)) %>% 
@@ -68,12 +122,7 @@ hosp_current <- hosp_data %>%
   arrange(desc(report)) %>% 
   slice(1)
 
-hosp_data <- rbind(hosp_out, hosp_current) %>% 
-  mutate(outcome = case_when(deceased ~ "deceased",
-                             !is.na(date_out) ~ "discharged",
-                             T ~ "hospitalized"))
-
-write_csv(hosp_data, path = "analysis_CH/data/VD/hospitalization_data.csv")
-
-
+hosp_data %>%
+  group_by(uid) %>%
+  summarise(n= n())
 
