@@ -8,7 +8,7 @@ lls=('d-deltah')
 #places=('FR' 'GE' 'GR' 'JU' 'NE' 'TI' 'VD' 'VS' 'ZH' 'BS' 'BL')
 #places=('AG' 'AI' 'AR' 'GL' 'NW' 'OW' 'SG' 'SH' 'SO' 'SZ' 'TG' 'UR' 'ZG' 'LU' 'BE')
 #places=("BE" "BL" "BS" "FR" "GE" "GR" "JU" "NE" "TI" "VS" "VD" "ZH")
-places=("BE" "BL" "BS" "FR" "GE")
+places=("GR" "JU" "NE" "TI" "VS" "VD" "ZH")
 # missing: AG AI AR GL NW OW SG SH SO SZ TG UR ZG "LU"
 #'BE' 'BL' 'BS'
 
