@@ -42,8 +42,8 @@ if (opt$a == 1 & Sys.getenv("SLURM_ARRAY_TASK_ID") != "") {
 
 # Level of detail on which to run the computations
 run_level <- opt$run_level
-sir_Np <- c(1e2, 3e3, 3e3)
-sir_Nmif <- c(2, 20, 100)
+sir_Np <- c(1e2, 3e3, 5e3)
+sir_Nmif <- c(2, 20, 150)
 sir_Ninit_param <- c(2, opt$jobs, opt$jobs)
 sir_NpLL <- c(1e2, 1e4, 1e4)
 sir_Nreps_global <- c(2, 5, 20)
@@ -77,7 +77,8 @@ data_file <- grep(place, list.files(config$data_path, full.names = T), value = T
 epidata <- ingestData(fdata = data_file,
                       likelihood = parsed_lik,
                       dt = "day",
-                      params = list(place = place))
+                      params = list(place = place),
+                      endate = as.Date('2020-04-24'))
 
 # Write data to csv for reproducibility
 write_csv(epidata, glue("{opt$b}interm/data_{suffix}.csv"))

@@ -108,7 +108,7 @@ getStartEndDates <- function(epidata, ...) {
   return(list(start = start_date, end = end_date))
 }
 
-ingestData <- function(fdata, likelihood, dt = "day", params = NULL, ...) {
+ingestData <- function(fdata, likelihood, dt = "day", params = NULL, endate, ...) {
   #' @title Ingest data
   #' @description Ingests data, applies pre-processing, and performs checks
   #' @param fdata data file
@@ -167,6 +167,10 @@ ingestData <- function(fdata, likelihood, dt = "day", params = NULL, ...) {
   
   # Set time column in fraction of years
   epidata$time <- dateToYears(epidata$date)
+  if (!(missing(endate))) {
+    epidata %<>% filter(date <= endate)
+  }
+  
   
   return(select(epidata, !!c( "time", epi_cols)))
 }
