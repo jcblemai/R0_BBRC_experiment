@@ -31,7 +31,7 @@ parameters_to_fit:
     rw_sd: regular
 profile_bounds:
   R0_0:
-    upper: 4.5
+    upper: 4.0
     lower: 1.5
 places:
   - CH

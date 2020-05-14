@@ -102,11 +102,13 @@ job_rw.sd <- getRWSD(config = config, rw.sd_param = rw.sd_param, tvary = tvary,
 # Compute profile --------------------------------------------------------------
 source(glue("{opt$b}scripts/mcap.R"))
 ll_prof_filename <- "COVID-pomp/results/profiling_loglik_COVID_CH_CH_d-deltah_R0_0-I_0-id2o_30_prof-R0_0.csv"
-prof_liks <- read_csv(ll_prof_filename) %>%
+prof_liks <- read_csv(ll_prof_filename) %>% mutate(R0_0 = round(R0_0, digits = 2)) %>%
   arrange(R0_0) %>%
   group_by(R0_0) %>%
   arrange(desc(loglik)) %>%
-  filter(loglik > -445)
+  filter(loglik > -445) %>% 
+  filter(R0_0 < 4.4) %>%
+  slice(1:3)
 
 R0_mcap <- mcap(prof_liks$loglik, prof_liks$R0_0, lambda = .7)
 
@@ -118,11 +120,11 @@ p <- ggplot(R0_mcap$fit, aes(x = parameter)) +
   geom_vline(aes(xintercept = R0_mcap$ci[2]), lty = 2, size = .3) +
   geom_hline(aes(yintercept = R0_mcap$llmax - R0_mcap$delta), lty = 2, size = .3) +
   theme_minimal()
-p
+print(p)
 ggsave(p, filename = glue("{opt$b}results/figs/profiling_R0_{suffix}.png"), width = 5, height = 4)
-paste0(format(R0_mcap$mle, digits = 3), " (",
+print(paste0(format(R0_mcap$mle, digits = 3), " (",
        paste(format(R0_mcap$ci, digits = 3), collapse = "-"),
-       ")")
+       ")"))
 
 ggplot(prof_liks, aes(x = R0_0)) +
   geom_point(aes(y = loglik)) +
