@@ -1,3 +1,4 @@
+
 # Title: POMP model of COVID19 in CH, cantonal level
 library(dplyr)
 library(purrr)
@@ -13,7 +14,7 @@ library(lubridate)
 library(parallel)
 library(glue)
 library(optparse)
-
+library(ggplot2)
 select <- dplyr::select
 
 option_list = list(
@@ -82,10 +83,10 @@ rw.sd_param <- set_names(c(rw.sd_rp, rw.sd_ivp), c("regular", "ivp"))
 
 pars_to_profile <- lapply(config$profile_bounds, function(x) seq(x$lower, x$upper, length.out = opt$jobs))
 pars_to_profile <- pars_to_profile[opt$to_profile]
-init_params <- getInitParams(config = config, 
+init_params <- getInitParams(config = config,
                              params = params,
                              param_fixed_names = param_fixed_names,
-                             use_case_incid = use_case_incid, 
+                             use_case_incid = use_case_incid,
                              npar = opt$n_prof,
                              profile = T,
                              pars_to_profile = pars_to_profile)
@@ -97,69 +98,17 @@ job_rw.sd <- getRWSD(config = config, rw.sd_param = rw.sd_param, tvary = tvary,
                      profile = T, pars_to_profile = pars_to_profile)
 
 # MIF --------------------------------------------------------------------------
-# parallel computations
-cl <- makeCluster(opt$cores)
-registerDoSNOW(cl)
-
-# MIF it! 
-t1 <- system.time({
-  mf <- foreach(parstart = iter(init_params, by = "row"),
-                .inorder = F, 
-                .packages = "pomp",
-                .errorhandling = "stop") %dopar% {
-                  mif2(covid,
-                       params = unlist(parstart),
-                       Np = sir_Np[run_level],
-                       Nmif = sir_Nmif[run_level],
-                       cooling.type = "geometric",
-                       cooling.fraction.50 = findAlpha(sir_Nmif[run_level], ncol(covid@data), 0.05),
-                       rw.sd = job_rw.sd,
-                       verbose = F)
-                }})
-
-save(t1, mf, file = mif_prof_filename)
-
-cat("----- Done MIF, took", round(t1["elapsed"]/60), "mins \n")
-
-# Log-lik ------------------------------------------------------------------
-
-t2 <- system.time({
-  prof_liks <- foreach(mfit = mf,
-                       .inorder = T, 
-                       .packages = "pomp",
-                       .combine = rbind,
-                       .errorhandling = "stop"
-  ) %dopar% {
-    # compute log-likelihood estimate by repeating filtering with the given param vect
-    ll <-  logmeanexp(
-      replicate(sir_Nreps_global[run_level],
-                logLik(
-                  pfilter(covid,
-                          params = pomp::coef(mfit),
-                          Np = sir_NpLL[run_level])
-                )
-      ), se = TRUE)
-    # save to dataframe
-    data.frame(loglik = ll[1], loglik_se = ll[2], t(coef(mfit)))
-  }
-})
-
-write_csv(prof_liks, path = ll_prof_filename, append = file.exists(ll_prof_filename))
-
-cat("----- Done LL, took", round(t2["elapsed"]/60), "mins \n")
-stopCluster(cl)
-
 
 # Compute profile --------------------------------------------------------------
 source(glue("{opt$b}scripts/mcap.R"))
 ll_prof_filename <- "COVID-pomp/results/profiling_loglik_COVID_CH_CH_d-deltah_R0_0-I_0-id2o_30_prof-R0_0.csv"
-prof_liks <- read_csv(ll_prof_filename) %>% 
-  arrange(R0_0) %>% 
-  group_by(R0_0) %>% 
-  arrange(desc(loglik)) %>% 
-  filter(loglik > -480)
+prof_liks <- read_csv(ll_prof_filename) %>%
+  arrange(R0_0) %>%
+  group_by(R0_0) %>%
+  arrange(desc(loglik)) %>%
+  filter(loglik > -445)
 
-R0_mcap <- mcap(prof_liks$loglik, prof_liks$R0_0, lambda = .9)
+R0_mcap <- mcap(prof_liks$loglik, prof_liks$R0_0, lambda = .7)
 
 p <- ggplot(R0_mcap$fit, aes(x = parameter)) +
   geom_line(aes(y = quadratic), color = "blue") +
@@ -176,7 +125,7 @@ paste0(format(R0_mcap$mle, digits = 3), " (",
        ")")
 
 ggplot(prof_liks, aes(x = R0_0)) +
-  geom_point(aes(y = loglik)) + 
+  geom_point(aes(y = loglik)) +
   # geom_errorbar(aes(ymin = loglik - loglik_se * 1.96, ymax = loglik + loglik_se * 1.96), width = 0) +
   geom_smooth(aes(y = loglik))
 
