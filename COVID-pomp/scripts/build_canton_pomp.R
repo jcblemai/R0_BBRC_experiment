@@ -141,7 +141,18 @@ if (simtest) {
     scale_color_viridis_d() +
     facet_wrap(~var, scales = "free_y")
 }
-
+#load("~/Google Drive/PhD/COVID-19 Vaud Data/sim_output/Before reviews/tavary 5mars/interm/pomp_COVID_CH_GR_d-deltah_id2o_30.rda")
+#covid_n@times <- covid@times
+#covid_n@data <- cbind(covid_n@data, matrix(data=NA,nrow=14,ncol=5))  # 5 for GR, 6 for TI
+#covid_n@data['case_incid',] <- covid@data['cases',]
+##covid_n@data['death_incid',] <- covid@data['deaths',]
+#covid_n@data['hosp_incid',] <- covid@data['hosp_incid',]
+#covid_n@data['hosp_curr',] <- covid@data['hosp_curr',]
+#covid_n@data['icu_curr',] <- covid@data['icu_curr',]
+#covid_n@data['discharge_incid',] <- covid@data['discharged',]
+#covid_n@data['delta_hosp',] <- covid@data['delta_hosp',]
+#covid_n@data['delta_ID',] <- covid@data['delta_ID',]
+#covid <- covid_n
 # Save pomp object 
 save(covid, file = glue("{opt$b}interm/pomp_{suffix}.rda"))
 
