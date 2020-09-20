@@ -1,0 +1,12 @@
+{
+  "name": "covid_19",
+  "version": "1.0.0",
+  "repository": "git@github.com:openZH/covid_19.git",
+  "license": "MIT",
+  "dependencies": {
+    "csv-validator": "0.0.3"
+  },
+  "scripts": {
+    "test": "node scripts/validate-csv.js fallzahlen_kanton_total_csv_v2/*.csv"
+  }
+}
