@@ -94,10 +94,6 @@ epidata4plot <- epidata %>%
   select(-date)  %>% 
   gather(var, value, -time) 
 
-if (place == "CH") {
-  write_csv(filter_stats, "scenario-pipeline/reports/filter_states.csv")
-  write_csv(epidata, "scenario-pipeline/reports/national_epidata.csv")
-}
 
 tstart <- dateToYears(max(epidata$date[!is.na(epidata$a_I)], na.rm = T))
                       
