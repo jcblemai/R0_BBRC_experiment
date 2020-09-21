@@ -26,7 +26,8 @@ customIngestData <- function(fdata, params = NULL) {
   if (params$place == "CH") {
     # load national-level estimates from Probst's github
     ch_data_dir <- "data/ch/cases/covid19-cases-switzerland/"
-    dfiles <- dir(ch_data_dir, pattern = "openzh.csv", full.names = T)
+    dfiles <- dir(ch_data_dir, pattern = "switzerland_openzh.csv", full.names = T)
+    #dfiles <- dir(ch_data_dir, pattern = "openzh.csv", full.names = T)
     
     ch_colnames <- list(
       cum_cases = sym("cases"),
