@@ -1,11 +1,12 @@
 
 # Set variables -----------------------------------------------------------
-
+nc_I <- 14
+nc_E <- 9
 # Number of compartements for each variable to represent Erlang distributions
 n_compartments <- list(
   S = 1,
-  E = 1,
-  I = 3,
+  E = nc_E,
+  I = nc_I,
   I_d = 1,
   I_h = 1,
   H_s = 1,
@@ -157,25 +158,50 @@ rmeasure.Csnippet <- Csnippet("
 
 # Process model -----------------------------------------------------------------
 
+Icomp <- state_names[state_names %>% grep('^I[0-9]*$', .)]
+Ecomp <- state_names[state_names %>% grep('^E[0-9]*$', .)]
+Isum <- paste(Icomp, collapse = '+')
+Iinit <- paste(append(Icomp, ' '), collapse = '=0;')
+Einit <- paste(append(Ecomp, ' '), collapse = '=0;')
+Edraw <- ''
+Idraw <- ''
+Eeqn <- glue('E1 -= dN[19];')
+Ieqn <- glue('I1 -= dN[{18+nc_E+i}];')
+for (i in seq(nc_E-1)){
+  Edraw <- str_c(Edraw,glue('reulermultinom(1, E{i}, &rate[1], dt, &dN[{18+i}]);'))
+  if (i > 1){
+  Eeqn <- str_c(Eeqn,glue('E{i} += dN[{18+i-1}] - dN[{18+i}];'))
+  }
+  
+}
+for (i in seq(nc_I-1)){
+  Idraw <- str_c(Idraw,glue('reulermultinom(1, I{i}, &rate[1], dt, &dN[{18+nc_E+i}]);'))
+  if (i > 1){
+    Ieqn <- str_c(Ieqn,glue('I{i} += dN[{18+nc_E+i-1}] - dN[{18+nc_E+i}];'))
+  }
+}
+
+
 # create C code for each district
-proc.Csnippet <- Csnippet("
+proc.Csnippet <- Csnippet(glue("
                           double foi, foi_stoc; // force of infection and its stochastic version
                           double dw, dWX;       // extra-demographic stochasticity on foi
                           double rate[18];      // vector of all rates in model
-                          double dN[18];        // vector of transitions between classes during integration timestep
+                          double dN[18+{nc_E}+{nc_I}];        // vector of transitions between classes during integration timestep
 
                           // force of infection
-                          foi =  exp(X) * (I1 + I2 + I3)/N;
+                          
+                          foi =  exp(X) * ({Isum})/N;
                           
                           // define transition rates for each type of event
                           // S compartment
                           rate[0] = foi;   // infections
                           // E compartment
-                          rate[1] = e2i;    // transition to I1
+                          rate[1] = e2i * {nc_E};    // transition to I1
                           // I1 compartment
-                          rate[2] = i2o * 3;  // transition to I2
+                          rate[2] = i2o * {nc_I};  // transition to I2
                            // I2 compartment
-                          rate[3] = i2o * 3;  // transition to I3
+                          //rate[3] = i2o * 3;  // transition to I3
                           // I3 compartment
                           rate[4] = psevere * (1-pi2h) * i2o * 3;    // death_incid without hospitalization
                           rate[5] = psevere * pi2h * i2o * 3;    // hospitalizations
@@ -208,10 +234,10 @@ proc.Csnippet <- Csnippet("
                           
                           // simulate all transitions
                           reulermultinom(1, S,  &rate[0], dt, &dN[0]);
-                          reulermultinom(1, E, &rate[1], dt, &dN[1]);
-                          reulermultinom(1, I1, &rate[2], dt, &dN[2]);
-                          reulermultinom(1, I2, &rate[3], dt, &dN[3]);
-                          reulermultinom(3, I3, &rate[4], dt, &dN[4]);
+                          
+                          reulermultinom(1, E{nc_E}, &rate[1], dt, &dN[1]);
+                          reulermultinom(3, I{nc_I}, &rate[4], dt, &dN[4]);
+                          
                           reulermultinom(2, I_d, &rate[7], dt, &dN[7]);
                           reulermultinom(3, I_h, &rate[9], dt, &dN[9]);
                           reulermultinom(1, H_s, &rate[12], dt, &dN[12]);
@@ -219,13 +245,19 @@ proc.Csnippet <- Csnippet("
                           reulermultinom(1, H_d, &rate[15], dt, &dN[15]);
                           reulermultinom(1, U_s,  &rate[16], dt, &dN[16]);
                           reulermultinom(1, U_d, &rate[17], dt, &dN[17]);
+                               {Edraw}
+                               {Idraw}
 
                           // update state variables
                           S    += -dN[0];
-                          E    += dN[0] - dN[1];
-                          I1   += dN[1] - dN[2];
-                          I2   += dN[2] - dN[3];
-                          I3   += dN[3] - dN[4] - dN[5] - dN[6];
+                          E1   += dN[0];
+                          {Eeqn}
+                          E{nc_E} += dN[{8+nc_E-1}] - dN[1];
+                        
+                          I1   += dN[1];
+                          {Ieqn}
+                          I{nc_I}   += dN[{18+nc_E+nc_I-1}] - dN[4] - dN[5] - dN[6];
+
                           I_d  += dN[4] - dN[7] - dN[8];
                           I_h  += dN[5] - dN[9] - dN[10] - dN[11];
                           H_s += dN[9] - dN[12];
@@ -263,14 +295,13 @@ proc.Csnippet <- Csnippet("
                           // susceptibles so as to match total population
                           N = pop - D - H_curr - U_curr;
                           Rt = exp(X) / (i2o); 
-                          ")
+                          "))
 
 # Initializer 
-init.Csnippet <- Csnippet("X = log(R0_0 * i2o);
-                          E   = 0;
+init.Csnippet <- Csnippet(glue("X = log(R0_0 * i2o);
+                               {Einit}
+                               {Iinit}
                           I1  =  nearbyint(I_0 * pop);
-                          I2  = 0;
-                          I3 = 0;
                           I_h = 0;
                           I_d = 0;
                           H_s = 0;
@@ -296,4 +327,4 @@ init.Csnippet <- Csnippet("X = log(R0_0 * i2o);
                           R   = 0;
                           S   = nearbyint(pop - I1);
                           N   = pop;
-                          tot_I = 0;")
+                          tot_I = 0;"))
