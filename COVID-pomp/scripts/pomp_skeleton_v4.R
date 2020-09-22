@@ -166,7 +166,7 @@ Einit <- paste(append(Ecomp, ' '), collapse = '=0;')
 Edraw <- ''
 Idraw <- ''
 Eeqn <- glue('E1 -= dN[19];')
-Ieqn <- glue('I1 -= dN[{18+nc_E+i}];')
+Ieqn <- glue('I1 -= dN[{18+nc_E+1}];')
 for (i in seq(nc_E-1)){
   Edraw <- str_c(Edraw,glue('reulermultinom(1, E{i}, &rate[1], dt, &dN[{18+i}]);'))
   if (i > 1){
@@ -252,7 +252,7 @@ proc.Csnippet <- Csnippet(glue("
                           S    += -dN[0];
                           E1   += dN[0];
                           {Eeqn}
-                          E{nc_E} += dN[{8+nc_E-1}] - dN[1];
+                          E{nc_E} += dN[{18+nc_E-1}] - dN[1];
                         
                           I1   += dN[1];
                           {Ieqn}
