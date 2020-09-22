@@ -1,7 +1,6 @@
 
 # Set variables -----------------------------------------------------------
-nc_E <- 1
-nc_I <- 3
+
 
 # Number of compartements for each variable to represent Erlang distributions
 n_compartments <- list(

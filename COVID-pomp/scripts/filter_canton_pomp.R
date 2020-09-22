@@ -26,11 +26,16 @@ option_list = list(
   make_option(c("-r", "--run_level"), default = 3, type = "numeric", help = "run level for MIF"),
   make_option(c("-n", "--nfilter"), default=10, type='numeric', help="Number of filtering iterations"),
   make_option(c("-l", "--likelihood"), default='d-deltah', type='character', help="likelihood to be used for filtering"),
+  make_option(c("-E", "--nbE"), default = 1, type = "numeric", help = "number of E compartement"),
+  make_option(c("-I", "--nbI"), default = 3, type = "numeric", help = "number of I compartement"),
   make_option(c("-s", "--suffix"), default = NULL, type = "character", help = "custom suffix to add")
 )
 
 opt <-parse_args(OptionParser(option_list=option_list))
 config <- yaml::read_yaml(opt$config)
+
+nc_E <- opt$nbE
+nc_I <- opt$nbI
 
 source(glue("{opt$b}scripts/skellam.R"))
 source(glue("{opt$b}scripts/mifCooling.R"))
@@ -56,7 +61,7 @@ suffix <- buildSuffix(
   place = place,
   lik_components = parsed_lik$components,
   params_to_fit = config$parameters_to_fit,
-  other =  c(config$sdfrac * 100, opt$suffix)
+  other =  c(config$sdfrac * 100, opt$suffix, 'NB', nc_E, nc_I)
 )
 
 filter_filename <- glue("{opt$b}results/filtered_{suffix}.rds")
