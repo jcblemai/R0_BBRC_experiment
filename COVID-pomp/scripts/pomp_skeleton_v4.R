@@ -167,7 +167,7 @@ for (i in seq(nc_E-1)){
   
 }
 for (i in seq(nc_I-1)){
-  Idraw <- str_c(Idraw,glue('reulermultinom(1, I{i}, &rate[1], dt, &dN[{18+nc_E+i}]);'))
+  Idraw <- str_c(Idraw,glue('reulermultinom(1, I{i}, &rate[2], dt, &dN[{18+nc_E+i}]);'))
   if (i > 1){
     Ieqn <- str_c(Ieqn,glue('I{i} += dN[{18+nc_E+i-1}] - dN[{18+nc_E+i}];'))
   }
@@ -185,7 +185,7 @@ if (nc_I == 1)
   Idraw <- ''
   Ieqn <- ''
 } else {
-  Ieqn <- str_c(Eeqn,glue('I{nc_I}   += dN[{18+nc_E+nc_I-1}];'))
+  Ieqn <- str_c(Ieqn,glue('I{nc_I}   += dN[{18+nc_E+nc_I-1}];'))
 }
 
 # create C code for each district
@@ -206,8 +206,7 @@ proc.Csnippet <- Csnippet(glue("
                           rate[1] = e2i * {nc_E};    // transition to I1
                           // I1 compartment
                           rate[2] = i2o * {nc_I};  // transition to I2
-                           // I2 compartment
-                          //rate[3] = i2o * 3;  // transition to I3
+
                           // I3 compartment
                           rate[4] = psevere * (1-pi2h) * i2o * 3;    // death_incid without hospitalization
                           rate[5] = psevere * pi2h * i2o * 3;    // hospitalizations
