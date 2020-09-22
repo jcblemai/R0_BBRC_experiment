@@ -1,29 +1,21 @@
 
 # Set variables -----------------------------------------------------------
-nc_I <- 14
-nc_E <- 9
+nc_E <- 1
+nc_I <- 3
+
 # Number of compartements for each variable to represent Erlang distributions
 n_compartments <- list(
-  S = 1,
   E = nc_E,
-  I = nc_I,
-  I_d = 1,
-  I_h = 1,
-  H_s = 1,
-  H = 1,
-  U_s = 1,
-  H_d = 1,
-  U_d = 1,
-  R = 1
+  I = nc_I
 )
 
 # define stat variable names for each district
 state_names <- mapply(
-  function(n, comp) {if(n == 1) {comp} else {str_c(comp, 1:n)}},
+  function(n, comp) {str_c(comp, 1:n)},
   n = n_compartments, 
   comp = names(n_compartments)) %>% 
   unlist() %>% 
-  c("H_curr", "U_curr", "D", "X", "N",
+  c("S","I_d","I_h","H_s", "H", "U_s", "H_d","U_d","R" ,"H_curr", "U_curr", "D", "X", "N",
     "a_I", "a_H", "a_U", "a_D", "a_DH", "a_DI", "a_DU", "a_O", "a_OU", "a_deltaH",
     "a_deltaU","a_deltaID", "Rt", "tot_I") # prefix a_ represent accumulator variables for incidences
 
@@ -180,7 +172,21 @@ for (i in seq(nc_I-1)){
     Ieqn <- str_c(Ieqn,glue('I{i} += dN[{18+nc_E+i-1}] - dN[{18+nc_E+i}];'))
   }
 }
+if (nc_E == 1)
+{
+  Edraw <- ''
+  Eeqn <- ''
+} else {
+  Eeqn <- str_c(Eeqn,glue('E{nc_E} += dN[{18+nc_E-1}];'))
+}
 
+if (nc_I == 1)
+{
+  Idraw <- ''
+  Ieqn <- ''
+} else {
+  Ieqn <- str_c(Eeqn,glue('I{nc_I}   += dN[{18+nc_E+nc_I-1}];'))
+}
 
 # create C code for each district
 proc.Csnippet <- Csnippet(glue("
@@ -234,8 +240,10 @@ proc.Csnippet <- Csnippet(glue("
                           
                           // simulate all transitions
                           reulermultinom(1, S,  &rate[0], dt, &dN[0]);
-                          
+                          {Edraw}
                           reulermultinom(1, E{nc_E}, &rate[1], dt, &dN[1]);
+                          
+                          {Idraw}
                           reulermultinom(3, I{nc_I}, &rate[4], dt, &dN[4]);
                           
                           reulermultinom(2, I_d, &rate[7], dt, &dN[7]);
@@ -245,18 +253,17 @@ proc.Csnippet <- Csnippet(glue("
                           reulermultinom(1, H_d, &rate[15], dt, &dN[15]);
                           reulermultinom(1, U_s,  &rate[16], dt, &dN[16]);
                           reulermultinom(1, U_d, &rate[17], dt, &dN[17]);
-                               {Edraw}
-                               {Idraw}
+
 
                           // update state variables
                           S    += -dN[0];
                           E1   += dN[0];
                           {Eeqn}
-                          E{nc_E} += dN[{18+nc_E-1}] - dN[1];
+                          E{nc_E} -= dN[1];
                         
                           I1   += dN[1];
                           {Ieqn}
-                          I{nc_I}   += dN[{18+nc_E+nc_I-1}] - dN[4] - dN[5] - dN[6];
+                          I{nc_I}   += - dN[4] - dN[5] - dN[6];
 
                           I_d  += dN[4] - dN[7] - dN[8];
                           I_h  += dN[5] - dN[9] - dN[10] - dN[11];
