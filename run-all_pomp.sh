@@ -14,8 +14,8 @@ places=("CH")
 
 for place in ${places[@]}; do
   for ll in ${lls[@]}; do
-    Rscript COVID-pomp/scripts/build_canton_pomp.R -p ${place} -l ${ll} -r 3 -o 8 -j 16 -E $1 -I $2
-    Rscript COVID-pomp/scripts/filter_canton_pomp.R -p ${place} -l ${ll} -o 8 -n 1000 -E $1 -I $2
+    Rscript COVID-pomp/scripts/build_canton_pomp.R -p ${place} -l ${ll} -r 3 -o 16 -j 16 -E $1 -I $2
+    Rscript COVID-pomp/scripts/filter_canton_pomp.R -p ${place} -l ${ll} -o 16 -n 1000 -E $1 -I $2
     Rscript COVID-pomp/scripts/plot_filter_canton_pomp.R -p ${place} -l ${ll} -E $1 -I $2
   done
 done

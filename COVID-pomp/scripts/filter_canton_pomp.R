@@ -79,7 +79,7 @@ registerDoSNOW(cl)
 best_params <- liks %>%
   arrange(desc(loglik)) %>% 
   select(-contains("log")) %>%
-  slice(1:3)
+  slice(1)
 
 t3 <- system.time({
   filter_dists <- foreach(pari = iter(best_params, "row"),

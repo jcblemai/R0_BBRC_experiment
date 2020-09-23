@@ -23,14 +23,15 @@ option_list = list(
   make_option(c("-l", "--likelihood"), default='d-deltah', type='character', help="likelihood to be used for filtering"),
   make_option(c("-E", "--nbE"), default = 1, type = "numeric", help = "number of E compartement"),
   make_option(c("-I", "--nbI"), default = 3, type = "numeric", help = "number of I compartement"),
-  make_option(c("-s", "--suffix"), default = 'gamma9-14', type = "character", help = "custom suffix to add")
+  make_option(c("-s", "--suffix"), default = NULL, type = "character", help = "custom suffix to add")
 )
 
-nc_E <- opt$nbE
-nc_I <- opt$nbI
 
 opt <-parse_args(OptionParser(option_list=option_list))
 config <- yaml::read_yaml(opt$config)
+
+nc_E <- opt$nbE
+nc_I <- opt$nbI
 
 source(glue("{opt$b}scripts/utils.R"))
 
@@ -51,7 +52,7 @@ suffix <- buildSuffix(
   lik_components = parsed_lik$components,
   params_to_fit = config$parameters_to_fit,
   other =  c(config$sdfrac * 100, opt$suffix, 'NB', nc_E, nc_I)
-)ss
+)
 
 filter_filename <- glue("{opt$b}results/filtered_{suffix}.rds")
 liks <- read_csv(glue("{opt$b}results/loglik_exploration_{suffix}.csv"))
