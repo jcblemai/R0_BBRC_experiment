@@ -159,14 +159,16 @@ Idraw <- ''
 Eeqn <- glue('E1 -= dN[19];')
 Ieqn <- glue('I1 -= dN[{18+nc_E+1}];')
 for (i in seq(nc_E-1)){
-  Edraw <- str_c(Edraw,glue('reulermultinom(1, E{i}, &rate[1], dt, &dN[{18+i}]);'))
+  #Edraw <- str_c(Edraw,glue('reulermultinom(1, E{i}, &rate[1], dt, &dN[{18+i}]);'))
+  Edraw <- str_c(Edraw,glue('dN[{18+i}] = E{i};'))
   if (i > 1){
   Eeqn <- str_c(Eeqn,glue('E{i} += dN[{18+i-1}] - dN[{18+i}];'))
   }
   
 }
 for (i in seq(nc_I-1)){
-  Idraw <- str_c(Idraw,glue('reulermultinom(1, I{i}, &rate[2], dt, &dN[{18+nc_E+i}]);'))
+  #Idraw <- str_c(Idraw,glue('reulermultinom(1, I{i}, &rate[2], dt, &dN[{18+nc_E+i}]);'))
+  Idraw <- str_c(Idraw,glue('dN[{18+nc_E+i}] = I{i};'))
   if (i > 1){
     Ieqn <- str_c(Ieqn,glue('I{i} += dN[{18+nc_E+i-1}] - dN[{18+nc_E+i}];'))
   }

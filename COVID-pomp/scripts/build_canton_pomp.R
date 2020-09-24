@@ -99,7 +99,7 @@ t_end <- dateToYears(max(epidata$date))
 params <- setParameters(config, opt)
 
 # rate of simulation in fractions of years
-dt_yrs <- 1 / (48 * 365.25)
+dt_yrs <- 1 / (10 * 365.25)
 
 # Transformation of parameters
 log_trans <- c("std_X", ifelse(use_case_incid, "k", NA)) %>% .[!is.na(.)]
