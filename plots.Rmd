@@ -1,36 +1,101 @@
 ---
-title: "R Notebook"
-output: html_notebook
+title: "BBRC POMP calibration results"
+output:
+  html_document:
+    theme: united
+    highlight: tango
+    code_folding: hide
+  html_notebook:
+     code_folding: hide
+  pdf_document: default
+  
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+```{r echo=FALSE, message = FALSE, include=FALSE}
+library(ggfortify)
+library(tidyverse)
+library(glue)
+source(file = 'COVID-pomp/scripts/utils.R')
+```
 
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
 
-```{r}
+```{r fig.cap="Distribution of time spent infectious: mean is 4.6 days (dashed red), gamma with shape 3 in green, with shape 14 in blue and with shape 100 in orange"}
 shape <- 3
-p <- ggdistribution(dgamma, seq(0, 15, 0.1), shape = shape, scale= 4.6/shape)
+p <- ggdistribution(dgamma, seq(0, 15, 0.1), shape = shape, scale= 4.6/shape, c = 'green')
 shape <- 14
-p <- ggdistribution(dgamma, seq(0, 15, 0.1), shape = shape, scale= 4.6/shape, p = p)
+p <- ggdistribution(dgamma, seq(0, 15, 0.1), shape = shape, scale= 4.6/shape, p = p, c= 'blue')
 shape <- 100
-p <- ggdistribution(dgamma, seq(0, 15, 0.1), shape = shape, scale= 4.6/shape, p = p)
+p <- ggdistribution(dgamma, seq(0, 15, 0.1), shape = shape, scale= 4.6/shape, p = p, c= 'orange')
 p + geom_vline(xintercept=4.6, linetype="dashed", color = "red")
 ```
 
-```{r}
+```{r fig.cap="Distribution of time spent incubating: mean is 2.9 days (dashed red), gamma with shape 1 in green, with shape 9 in blue and with shape 100 in orange."}
 
 shape <- 1
-p <- ggdistribution(sdgamma, seq(0, 15, 0.1), shape = shape, scale= 2.9/shape)
+p <- ggdistribution(dgamma, seq(0, 15, 0.1), shape = shape, scale= 2.9/shape, c = 'green')
 shape <- 9
-p <- ggdistribution(dgamma, seq(0, 15, 0.1), shape = shape, scale= 2.9/shape, p = p)
+p <- ggdistribution(dgamma, seq(0, 15, 0.1), shape = shape, scale= 2.9/shape, p = p, c= 'blue')
 shape <- 100
-p <- ggdistribution(dgamma, seq(0, 15, 0.1), shape = shape, scale= 2.9/shape, p = p)
+p <- ggdistribution(dgamma, seq(0, 15, 0.1), shape = shape, scale= 2.9/shape, p = p, c= 'orange')
 p + geom_vline(xintercept=2.9, linetype="dashed", color = "red")
 ```
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+```{r echo=FALSE, message = FALSE}
+filter1_3 <- readRDS(glue("COVID-pomp/results/echopc16/first1-3/COVID-pomp/results/filtered_COVID_CH_CH_d-deltah_R0_0-I_0-id2o_30_NB_1_3.rds")) %>%   
+  group_by(time, parset, var) %>% 
+  summarise(mean = mean(value, na.rm = T),
+            median = median(value, na.rm = T),
+            q025 = quantile(value, 0.025, na.rm = T),
+            q975 = quantile(value, 0.975, na.rm = T),
+            q25 = quantile(value, 0.25, na.rm = T),
+            q75 = quantile(value, 0.75, na.rm = T)) %>%
+  ungroup() %>% 
+  mutate(date = yearsToDate(time),
+         parset = factor(parset)) %>% 
+  filter(var == 'Rt') %>%
+  select(-parset, -var) %>% 
+  mutate(params = '1-3')
 
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+filter9_14 <- readRDS(glue("COVID-pomp/results/echopc16/first9-14/COVID-pomp/results/filtered_COVID_CH_CH_d-deltah_R0_0-I_0-id2o_30_NB_9_14.rds")) %>% 
+  group_by(time, parset, var) %>% 
+  summarise(mean = mean(value, na.rm = T),
+            median = median(value, na.rm = T),
+            q025 = quantile(value, 0.025, na.rm = T),
+            q975 = quantile(value, 0.975, na.rm = T),
+            q25 = quantile(value, 0.25, na.rm = T),
+            q75 = quantile(value, 0.75, na.rm = T)) %>%
+  ungroup() %>% 
+  mutate(date = yearsToDate(time),
+         parset = factor(parset)) %>% 
+  filter(var == 'Rt') %>%
+  select(-parset, -var) %>% 
+  mutate(params = '9-14')
 
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+filter_all <- rbind(filter1_3, filter9_14)
+```
+
+In the following, we denote model variations by the shape parameter of their gamma (i.e the number of compartments). As an example, model X_Y has $X$ compartments for the $E$, incubating state, and $Y$ compartements for the $I$, infectious state. The model used in the swiss medical weekly was parametrized as 1_3.
+
+**Calibration of model 100_100 is not finished, hence we only show 1-3 (as smw) and 9-14.**
+
+```{r fig.cap="R0 infered using parametrisation 1-3 (left) and 9-14 (right)."}
+
+p <- ggplot(filter_all, 
+            aes(x = time)) +
+  geom_ribbon(aes(ymin = q025, ymax = q975), alpha = .2) +
+  geom_ribbon(aes(ymin = q25, ymax = q75), alpha = .2) +
+  facet_wrap(~params)  +
+  theme_bw() +
+  scale_x_continuous(labels = yearsToDateLabel)
+p
+```
+```{r fig.cap="R0 infered using parametrisation 1-3 (red) and 9-14 (blue-green)."}
+p <- ggplot(filter_all, 
+            aes(x = time)) +
+  geom_ribbon(aes(ymin = q025, ymax = q975, fill = params), alpha = .2) +
+  geom_ribbon(aes(ymin = q25, ymax = q75, fill = params), alpha = .2) +
+  theme_bw() +
+  scale_x_continuous(labels = yearsToDateLabel)
+p
+```
 
