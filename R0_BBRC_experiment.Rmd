@@ -18,15 +18,12 @@ library(glue)
 source(file = 'COVID-pomp/scripts/utils.R')
 ```
 
-Launched 3 calibrations:
+Launched 4 calibrations:
 
  - **1_3**: One compartments for $E$ and three for $I$, control experiment, as swiss medical weekly paper.
  - **9_14**: Nine compartments for $E$ and fourteen for $I$, intermediate experiment.
- - **100_100**: 100 compartments for $E$ and 100 for $I$, much closer to a constant serial interval.
-
-
-**IMPORTANT** Calibration of model 100_100 is not finished, hence we only show 1_3 and 9_14.
-
+ - **70_100**: 70 compartments for $E$ and 100 for $I$, much closer to a constant serial interval.
+ - **dirac**: deterministic true dirac forcing the outing of the $E$ compartments after 2.9 days and  the outing of the $I$ compartement after 4.6 days. The dirac is precise at 1/10th of a day.
 
 ```{r fig.cap="Distribution of time spent infectious: mean is 4.6 days (dashed red), gamma with shape 3 in green, with shape 14 in blue and with shape 100 in orange"}
 shape <- 3
@@ -80,13 +77,43 @@ filter9_14 <- readRDS(glue("COVID-pomp/results/echopc16/first9-14/COVID-pomp/res
   select(-parset, -var) %>% 
   mutate(params = '9-14')
 
-filter_all <- rbind(filter1_3, filter9_14)
+filter_dirac <- readRDS(glue("COVID-pomp/results/echopc16/dirac/COVID-pomp/results/filtered_COVID_CH_CH_d-deltah_R0_0-I_0-id2o_30_NB_29_46.rds")) %>%   
+  group_by(time, parset, var) %>% 
+  summarise(mean = mean(value, na.rm = T),
+            median = median(value, na.rm = T),
+            q025 = quantile(value, 0.025, na.rm = T),
+            q975 = quantile(value, 0.975, na.rm = T),
+            q25 = quantile(value, 0.25, na.rm = T),
+            q75 = quantile(value, 0.75, na.rm = T)) %>%
+  ungroup() %>% 
+  mutate(date = yearsToDate(time),
+         parset = factor(parset)) %>% 
+  filter(var == 'Rt') %>%
+  select(-parset, -var) %>% 
+  mutate(params = 'dirac')
+
+filter70_100 <- readRDS(glue("COVID-pomp/results/echopc16/first70-100/COVID-pomp/results/filtered_COVID_CH_CH_d-deltah_R0_0-I_0-id2o_30_NB_70_100.rds")) %>%   
+  group_by(time, parset, var) %>% 
+  summarise(mean = mean(value, na.rm = T),
+            median = median(value, na.rm = T),
+            q025 = quantile(value, 0.025, na.rm = T),
+            q975 = quantile(value, 0.975, na.rm = T),
+            q25 = quantile(value, 0.25, na.rm = T),
+            q75 = quantile(value, 0.75, na.rm = T)) %>%
+  ungroup() %>% 
+  mutate(date = yearsToDate(time),
+         parset = factor(parset)) %>% 
+  filter(var == 'Rt') %>%
+  select(-parset, -var) %>% 
+  mutate(params = '70-100')
+
+filter_all <- rbind(filter1_3, filter9_14, filter70_100, filter_dirac)
 ```
 
 
 
 
-```{r fig.cap="R0 infered using parametrisation 1-3 (left) and 9-14 (right)."}
+```{r fig.cap="R0 infered using the different parametrisations."}
 
 p <- ggplot(filter_all, 
             aes(x = time)) +
@@ -97,11 +124,22 @@ p <- ggplot(filter_all,
   scale_x_continuous(labels = yearsToDateLabel)
 p
 ```
-```{r fig.cap="R0 infered using parametrisation 1-3 (red) and 9-14 (blue-green)."}
+
+```{r fig.cap="R0 infered using different parametrisations."}
 p <- ggplot(filter_all, 
             aes(x = time)) +
-  geom_ribbon(aes(ymin = q025, ymax = q975, fill = params), alpha = .2) +
+  geom_ribbon(aes(ymin = q025, ymax = q975, fill = params), alpha = .1) +
+  geom_ribbon(aes(ymin = q25, ymax = q75, fill = params), alpha = .3) +
+  #geom_line(aes(y = median, fill = params)) +
+  theme_bw() +
+  scale_x_continuous(labels = yearsToDateLabel)
+p
+```
+```{r fig.cap="R0 infered using different parametrisations maybe clearer with just q25->175"}
+p <- ggplot(filter_all, 
+            aes(x = time)) +
   geom_ribbon(aes(ymin = q25, ymax = q75, fill = params), alpha = .2) +
+  geom_line(aes(y = median, color = params)) +
   theme_bw() +
   scale_x_continuous(labels = yearsToDateLabel)
 p
