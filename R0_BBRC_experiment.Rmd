@@ -25,26 +25,6 @@ Launched 4 calibrations:
  - **70_100**: 70 compartments for $E$ and 100 for $I$, much closer to a constant serial interval.
  - **dirac**: deterministic true dirac forcing the outing of the $E$ compartments after 2.9 days and  the outing of the $I$ compartement after 4.6 days. The dirac is precise at 1/10th of a day.
 
-```{r fig.cap="Distribution of time spent infectious: mean is 4.6 days (dashed red), gamma with shape 3 in green, with shape 14 in blue and with shape 100 in orange"}
-shape <- 3
-p <- ggdistribution(dgamma, seq(0, 15, 0.1), shape = shape, scale= 4.6/shape, c = 'green')
-shape <- 14
-p <- ggdistribution(dgamma, seq(0, 15, 0.1), shape = shape, scale= 4.6/shape, p = p, c= 'blue')
-shape <- 100
-p <- ggdistribution(dgamma, seq(0, 15, 0.1), shape = shape, scale= 4.6/shape, p = p, c= 'orange')
-p + geom_vline(xintercept=4.6, linetype="dashed", color = "red")
-```
-
-```{r fig.cap="Distribution of time spent incubating: mean is 2.9 days (dashed red), gamma with shape 1 in green, with shape 9 in blue and with shape 100 in orange."}
-
-shape <- 1
-p <- ggdistribution(dgamma, seq(0, 15, 0.1), shape = shape, scale= 2.9/shape, c = 'green')
-shape <- 9
-p <- ggdistribution(dgamma, seq(0, 15, 0.1), shape = shape, scale= 2.9/shape, p = p, c= 'blue')
-shape <- 100
-p <- ggdistribution(dgamma, seq(0, 15, 0.1), shape = shape, scale= 2.9/shape, p = p, c= 'orange')
-p + geom_vline(xintercept=2.9, linetype="dashed", color = "red")
-```
 
 ```{r echo=FALSE, message = FALSE}
 filter1_3 <- readRDS(glue("COVID-pomp/results/echopc16/first1-3/COVID-pomp/results/filtered_COVID_CH_CH_d-deltah_R0_0-I_0-id2o_30_NB_1_3.rds")) %>%   
@@ -145,3 +125,25 @@ p <- ggplot(filter_all,
 p
 ```
 
+# Appendix: distributions
+
+```{r fig.cap="Distribution of time spent infectious: mean is 4.6 days, the dirac is shown in dashed red, gamma with shape 3 in green, with shape 14 in blue and with shape 100 in orange"}
+shape <- 3
+p <- ggdistribution(dgamma, seq(0, 10, 0.1), shape = shape, scale= 4.6/shape, c = 'green')
+shape <- 14
+p <- ggdistribution(dgamma, seq(0, 10, 0.1), shape = shape, scale= 4.6/shape, p = p, c= 'blue')
+shape <- 100
+p <- ggdistribution(dgamma, seq(0, 10, 0.1), shape = shape, scale= 4.6/shape, p = p, c= 'orange')
+p + geom_vline(xintercept=4.6-0.05, linetype="dashed", color = "red") +geom_vline(xintercept=4.6+0.05, linetype="dashed", color = "red")
+```
+
+```{r fig.cap="Distribution of time spent incubating: mean is 2.9 days, , the dirac is shown in dashed red, gamma with shape 1 in green, with shape 9 in blue and with shape 70 in orange."}
+
+shape <- 1
+p <- ggdistribution(dgamma, seq(0, 8, 0.1), shape = shape, scale= 2.9/shape, c = 'green')
+shape <- 9
+p <- ggdistribution(dgamma, seq(0, 8, 0.1), shape = shape, scale= 2.9/shape, p = p, c= 'blue')
+shape <- 70
+p <- ggdistribution(dgamma, seq(0, 8, 0.1), shape = shape, scale= 2.9/shape, p = p, c= 'orange')
+p + geom_vline(xintercept=2.9-0.05, linetype="dashed", color = "red") + geom_vline(xintercept=2.9+0.05, linetype="dashed", color = "red")
+```
